@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import faiss
 import torch
@@ -8,10 +10,52 @@ from rank_bm25 import BM25Okapi
 class HybridRetriever:
     def __init__(self, embed_model_name='BAAI/bge-small-en-v1.5'):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.embed_model = SentenceTransformer(embed_model_name, device=self.device)
+        self.embed_model = self._load_embedding_model(embed_model_name)
         self.texts = []
         self.faiss_index = None
         self.bm25_index = None
+
+    def _load_embedding_model(self, embed_model_name):
+        """
+        默认优先离线加载，避免因为 VPN/网络波动导致建库不可用。
+        可通过环境变量控制：
+        - RAG_EMBED_MODEL_PATH: 指向本地模型目录（优先级最高）
+        - RAG_ALLOW_ONLINE_MODEL=1: 允许离线失败后回退到在线下载
+        """
+        local_model_path = os.getenv("RAG_EMBED_MODEL_PATH", "").strip()
+        allow_online_fallback = os.getenv("RAG_ALLOW_ONLINE_MODEL", "0").strip() == "1"
+
+        candidates = [c for c in [local_model_path, embed_model_name] if c]
+        load_errors = []
+
+        for candidate in candidates:
+            try:
+                return SentenceTransformer(
+                    candidate,
+                    device=self.device,
+                    local_files_only=True,
+                )
+            except TypeError:
+                # 兼容极少数旧版本 sentence-transformers（无 local_files_only 参数）
+                try:
+                    return SentenceTransformer(candidate, device=self.device)
+                except Exception as e:
+                    load_errors.append(f"{candidate}: {e}")
+            except Exception as e:
+                load_errors.append(f"{candidate}: {e}")
+
+        if allow_online_fallback:
+            for candidate in candidates:
+                try:
+                    return SentenceTransformer(candidate, device=self.device)
+                except Exception as e:
+                    load_errors.append(f"{candidate} (online): {e}")
+
+        raise RuntimeError(
+            "Embedding 模型离线加载失败。请先将模型下载到本地并设置 "
+            "RAG_EMBED_MODEL_PATH，或设置 RAG_ALLOW_ONLINE_MODEL=1 允许在线拉取。"
+            f" 详细错误: {' | '.join(load_errors)}"
+        )
 
     def build_index(self, chunks):
         self.texts = chunks
