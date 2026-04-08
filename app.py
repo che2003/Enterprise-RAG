@@ -1,4 +1,5 @@
 import glob
+import inspect
 import json
 import os
 import time
@@ -28,6 +29,29 @@ SYSTEM_STATE: Dict[str, object] = {
     "dashboard_summary": "尚未读取评测 CSV",
 }
 DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
+CHATBOT_SUPPORTS_MESSAGES = "type" in inspect.signature(gr.Chatbot.__init__).parameters
+
+
+def _append_chat_history(history, user_message: str, answer: str):
+    if CHATBOT_SUPPORTS_MESSAGES:
+        history.extend(
+            [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": answer},
+            ]
+        )
+    else:
+        history.append((user_message, answer))
+    return history
+
+
+def create_chatbot():
+    chatbot_kwargs = {"height": 420, "label": "RAG 专家助手"}
+    if CHATBOT_SUPPORTS_MESSAGES:
+        chatbot_kwargs["type"] = "messages"
+    return gr.Chatbot(**chatbot_kwargs)
+
+
 def resolve_method_b_chunk_limit() -> int:
     raw = os.getenv("RAG_METHOD_B_MAX_CHUNKS", "1500").strip()
     try:
@@ -112,7 +136,7 @@ def ensure_evaluator_engine() -> Tuple[bool, str]:
         return False, str(e)
 def chat_with_rag(
     user_message: str,
-    history: List[Dict[str, str]],
+    history: List,
     strategy: str,
     top_k: int,
     target_doc: str,
@@ -129,12 +153,7 @@ def chat_with_rag(
         error_payload = success_error_payload(
             "ENGINE_INIT_FAILED", init_error, "请检查依赖与日志后重启服务"
         )
-        history.extend(
-            [
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": "❌ 检索引擎初始化失败"},
-            ]
-        )
+        _append_chat_history(history, user_message, "❌ 检索引擎初始化失败")
         return "", history, "引擎未就绪，无法提供溯源。", error_payload, build_system_status_markdown()
     try:
         retriever = retriever_A if "Method A" in strategy else retriever_B
@@ -149,12 +168,7 @@ def chat_with_rag(
         error_payload = success_error_payload(
             "INDEX_NOT_READY", str(e), "请先上传 PDF 建库，或点击「先看看效果（加载 Demo 数据）」"
         )
-        history.extend(
-            [
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": "⚠️ 当前未建索引，请先建库。"},
-            ]
-        )
+        _append_chat_history(history, user_message, "⚠️ 当前未建索引，请先建库。")
         return "", history, "暂无溯源数据。", error_payload, build_system_status_markdown()
     except Exception as e:
         log_event(f"问答失败：检索阶段异常。原因: {e}")
@@ -163,12 +177,7 @@ def chat_with_rag(
             str(e),
             "请重试；如仍失败，请重新构建索引并检查模型加载状态",
         )
-        history.extend(
-            [
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": "❌ 检索过程中发生系统异常。"},
-            ]
-        )
+        _append_chat_history(history, user_message, "❌ 检索过程中发生系统异常。")
         return "", history, "系统异常，溯源不可用。", error_payload, build_system_status_markdown()
     if not chunks_list:
         log_event("问答进入兜底回复：未命中任何 chunk。")
@@ -189,12 +198,7 @@ def chat_with_rag(
                 "生成模型未就绪",
                 "请检查模型路径、显存容量并重启服务",
             )
-    history.extend(
-        [
-            {"role": "user", "content": user_message},
-            {"role": "assistant", "content": answer},
-        ]
-    )
+    _append_chat_history(history, user_message, answer)
     log_event(f"问答结束：history_size={len(history)}")
     return "", history, context_str, error_payload, build_system_status_markdown()
 def build_knowledge_base(file_objs, chunk_size):
@@ -461,7 +465,7 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
             qa_index_status = gr.Markdown("⚠️ 索引未就绪")
 
         with gr.Column(scale=3):
-            chatbot = gr.Chatbot(height=420, label="RAG 专家助手", type="messages")
+            chatbot = create_chatbot()
             msg_input = gr.Textbox(
                 placeholder="请输入您关于文献的问题，按 Enter 发送...",
                 label="知识库提问",
