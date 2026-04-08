@@ -33,6 +33,8 @@ SYSTEM_STATE: Dict[str, object] = {
     "dashboard_summary": "尚未读取评测 CSV",
 }
 
+DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
+
 
 def build_system_status_markdown() -> str:
     embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
@@ -131,7 +133,7 @@ def chat_with_rag(
         )
     except ValueError as e:
         error_payload = success_error_payload(
-            "INDEX_NOT_READY", str(e), "请先上传 PDF 并点击构建索引"
+            "INDEX_NOT_READY", str(e), "请先上传 PDF 建库，或点击「先看看效果（加载 Demo 数据）」"
         )
         history.append((user_message, "⚠️ 当前未建索引，请先建库。"))
         return "", history, "暂无溯源数据。", error_payload, build_system_status_markdown()
@@ -245,6 +247,80 @@ def build_knowledge_base(file_objs, chunk_size):
             build_system_status_markdown(),
             success_error_payload("INDEX_BUILD_FAILED", str(e), "检查 PDF 与参数后重试"),
         )
+
+
+def load_demo_knowledge_base():
+    ready, init_error = ensure_retrieval_engines()
+    if not ready:
+        return (
+            f"❌ 检索引擎初始化失败：{init_error}",
+            gr.update(),
+            "❌ Demo 加载失败",
+            build_system_status_markdown(),
+            success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试"),
+        )
+
+    if not os.path.exists(DEMO_CHUNKS_PATH):
+        message = f"未找到 Demo 数据文件：{DEMO_CHUNKS_PATH}"
+        return (
+            f"❌ {message}",
+            gr.update(),
+            "❌ Demo 加载失败",
+            build_system_status_markdown(),
+            success_error_payload("DEMO_FILE_MISSING", message, "确认仓库内 demo_chunks.json 是否存在"),
+        )
+
+    try:
+        start = time.time()
+        with open(DEMO_CHUNKS_PATH, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+
+        chunks_A = payload.get("chunks_A") or []
+        chunks_B = payload.get("chunks_B") or []
+
+        if not chunks_A and not chunks_B:
+            raise ValueError("Demo 文件中缺少 chunks_A/chunks_B 数据")
+        if not chunks_A:
+            chunks_A = chunks_B
+        if not chunks_B:
+            chunks_B = chunks_A
+
+        retriever_A.build_index(chunks_A)
+        retriever_B.build_index(chunks_B)
+
+        doc_names = sorted(
+            {
+                line.replace("[Source: ", "").replace("]", "")
+                for chunk in chunks_A + chunks_B
+                for line in chunk.split("\n", 1)[:1]
+                if line.startswith("[Source: ")
+            }
+        )
+        dropdown_choices = ["🌍 全局检索 (混合所有文档)"] + doc_names
+
+        elapsed = time.time() - start
+        summary = f"Demo 模式 | chunk数 A/B: {len(chunks_A)}/{len(chunks_B)} | 文档数: {len(doc_names)} | 耗时: {elapsed:.2f}s"
+        SYSTEM_STATE["index_ready"] = True
+        SYSTEM_STATE["index_summary"] = summary
+
+        logs = [
+            "⚡ 已加载内置 Demo 数据（预热弹药库）。",
+            "该模式用于快速体验系统布局与问答流程，正式测试请再执行完整 PDF 建库。",
+            f"📌 索引摘要：{summary}",
+        ]
+        return "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "✅ Demo 索引就绪", build_system_status_markdown(), "{}"
+    except Exception as e:
+        SYSTEM_STATE["index_ready"] = False
+        SYSTEM_STATE["index_summary"] = f"Demo 加载失败: {e}"
+        return (
+            f"❌ Demo 加载失败：{e}",
+            gr.update(),
+            "❌ Demo 加载失败",
+            build_system_status_markdown(),
+            success_error_payload("DEMO_LOAD_FAILED", str(e), "请检查 demo_chunks.json 格式"),
+        )
+
+
 
 
 def find_latest_dashboard_csv() -> Optional[str]:
@@ -378,11 +454,13 @@ with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
 
         with gr.Tab("📚 私有知识库注入"):
             gr.Markdown("上传 PDF 后，系统将依次构建 Method A / Method B 双路索引。")
+            gr.Markdown("若首次冷启动不想等待全量建库，可先点击 **先看看效果（加载 Demo 数据）** 立即体验。")
             with gr.Row():
                 with gr.Column(scale=2):
                     file_upload = gr.File(label="上传 PDF 文献集合", file_count="multiple", file_types=[".pdf"])
                     chunk_size_num = gr.Number(value=400, label="Target Chunk Size (字符)")
                     build_index_btn = gr.Button("🔨 解析并构建向量/BM25混合索引", variant="primary")
+                    load_demo_btn = gr.Button("⚡ 先看看效果（加载 Demo 数据）", variant="secondary")
                     qa_hint = gr.Markdown("建库完成后，请切换到【智能交互中心】进行问答测试。")
                 with gr.Column(scale=3):
                     index_log = gr.Textbox(lines=14, label="实时构建日志", interactive=False)
@@ -392,6 +470,12 @@ with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
             build_index_btn.click(
                 build_knowledge_base,
                 inputs=[file_upload, chunk_size_num],
+                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
+            )
+
+            load_demo_btn.click(
+                load_demo_knowledge_base,
+                inputs=None,
                 outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
             )
 
