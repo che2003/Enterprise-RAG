@@ -115,6 +115,7 @@ def build_knowledge_base(file_objs, chunk_size):
     """处理用户上传的 PDF 并构建双路索引，同时更新下拉菜单"""
     if not file_objs:
         yield "⚠️ 未检测到文件，请先上传 PDF。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
+        
         return
 
     try:
