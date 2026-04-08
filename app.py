@@ -17,20 +17,84 @@ print("==================================================")
 # ==========================================
 # 1. 全局单例初始化
 # ==========================================
-pipeline = DataPipeline()
-retriever_A = HybridRetriever()
-retriever_B = HybridRetriever()
+pipeline = None
+retriever_A = None
+retriever_B = None
+evaluator = None
+model_init_attempted = False
 
-# 💡 建议：如果只是跑 UI 演示，可以不传 judge_id 以节省显存
-try:
-    evaluator = RAGEvaluator(
-        generator_id="Qwen/Qwen3.5-2B",
-        judge_id=r"D:\models\Qwen3.5-9B"
+
+SYSTEM_STATE = {
+    "embedding_ready": False,
+    "model_ready": False,
+    "engine_status": "冷启动未完成（首次使用时按需初始化）",
+    "index_ready": False,
+    "index_summary": "尚未构建索引",
+    "dashboard_summary": "尚未读取评测 CSV"
+}
+
+
+def build_system_status_markdown():
+    """统一状态栏：展示 embedding/model/index 初始化与运行状态"""
+    embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
+    model_flag = "✅" if SYSTEM_STATE["model_ready"] else "❌"
+    index_flag = "✅" if SYSTEM_STATE["index_ready"] else "⚠️"
+
+    return (
+        "### 🟢 系统统一状态栏\n"
+        f"- Embedding 引擎：{embedding_flag}\n"
+        f"- LLM 生成引擎：{model_flag}\n"
+        f"- 冷启动状态：{SYSTEM_STATE['engine_status']}\n"
+        f"- 检索索引：{index_flag}\n"
+        f"- 索引摘要：{SYSTEM_STATE['index_summary']}\n"
+        f"- 大盘读取状态：{SYSTEM_STATE['dashboard_summary']}"
     )
-    print("✅ [系统] LLM 引擎加载成功！")
-except Exception as e:
-    print(f"⚠️ [系统] LLM 引擎加载失败，请检查显存或路径: {e}")
-    evaluator = None
+
+
+def ensure_retrieval_engines():
+    """按需初始化检索引擎，避免启动阶段阻塞。"""
+    global pipeline, retriever_A, retriever_B
+    if pipeline and retriever_A and retriever_B:
+        return True, ""
+
+    SYSTEM_STATE["engine_status"] = "检索引擎冷启动中..."
+    try:
+        pipeline = DataPipeline()
+        retriever_A = HybridRetriever()
+        retriever_B = HybridRetriever()
+        SYSTEM_STATE["embedding_ready"] = True
+        SYSTEM_STATE["engine_status"] = "检索引擎已就绪"
+        return True, ""
+    except Exception as e:
+        SYSTEM_STATE["embedding_ready"] = False
+        SYSTEM_STATE["engine_status"] = f"检索引擎初始化失败: {e}"
+        return False, str(e)
+
+
+def ensure_evaluator_engine():
+    """按需初始化生成模型，避免应用冷启动卡死。"""
+    global evaluator, model_init_attempted
+    if evaluator is not None:
+        return True, ""
+    if model_init_attempted:
+        return False, "模型初始化已失败，请检查模型路径或显存"
+
+    model_init_attempted = True
+    SYSTEM_STATE["engine_status"] = "LLM 引擎冷启动中..."
+    try:
+        evaluator = RAGEvaluator(
+            generator_id="Qwen/Qwen3.5-2B",
+            judge_id=r"D:\models\Qwen3.5-9B"
+        )
+        SYSTEM_STATE["model_ready"] = True
+        SYSTEM_STATE["engine_status"] = "LLM 引擎已就绪"
+        print("✅ [系统] LLM 引擎加载成功！")
+        return True, ""
+    except Exception as e:
+        SYSTEM_STATE["model_ready"] = False
+        SYSTEM_STATE["engine_status"] = f"LLM 初始化失败: {e}"
+        print(f"⚠️ [系统] LLM 引擎加载失败，请检查显存或路径: {e}")
+        return False, str(e)
 
 
 SYSTEM_STATE = {
@@ -71,6 +135,16 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
     # 将前端的防串库选项传递给底层引擎
     doc_filter = target_doc if target_doc != "🌍 全局检索 (混合所有文档)" else None
 
+    ready, init_error = ensure_retrieval_engines()
+    if not ready:
+        error_payload = {
+            "error_code": "ENGINE_INIT_FAILED",
+            "message": init_error,
+            "action": "请检查依赖与日志后重启服务"
+        }
+        history.append((user_message, f"❌ 检索引擎初始化失败 [{error_payload['error_code']}]"))
+        return "", history, json.dumps(error_payload, ensure_ascii=False, indent=2)
+
     # 💡 核心修复：加入 try-except 块，优雅捕获“未建库”的错误
     try:
         if "Method A" in strategy:
@@ -105,7 +179,11 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
         if evaluator:
             ans = evaluator.generate_answer(user_message, context_str)
         else:
-            ans = "模型未加载，这是 Mock 答案：根据检索结果，无法确定准确答案。"
+            model_ready, _ = ensure_evaluator_engine()
+            if model_ready and evaluator:
+                ans = evaluator.generate_answer(user_message, context_str)
+            else:
+                ans = "模型冷启动失败，当前返回检索摘要模式。请检查模型路径或显存。"
 
     history.append((user_message, ans))
     return "", history, context_str
@@ -115,13 +193,17 @@ def build_knowledge_base(file_objs, chunk_size):
     """处理用户上传的 PDF 并构建双路索引，同时更新下拉菜单"""
     if not file_objs:
         yield "⚠️ 未检测到文件，请先上传 PDF。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
-        
         return
 
     try:
         chunk_size = int(chunk_size)
     except Exception:
         yield "⚠️ chunk_size 非法，请输入有效整数（例如 400）。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
+        return
+
+    ready, init_error = ensure_retrieval_engines()
+    if not ready:
+        yield f"❌ 检索引擎初始化失败：{init_error}", gr.update(), build_system_status_markdown(), "❌ 索引构建失败"
         return
 
     log_messages = []
