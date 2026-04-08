@@ -4,20 +4,31 @@ import re
 
 
 class RAGEvaluator:
-    def __init__(self, generator_id="Qwen/Qwen3.5-2B", judge_id="Qwen/Qwen3.5-9B"):
+    def __init__(
+        self,
+        generator_id="Qwen/Qwen3.5-2B",
+        judge_id="Qwen/Qwen3.5-9B",
+        local_files_only=False,
+    ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.float16 if self.device == "cuda" else torch.float32
 
         print(f"🚀 [LLM] 正在加载选手模型 (Generator): {generator_id} ...")
-        self.gen_tokenizer = AutoTokenizer.from_pretrained(generator_id)
+        self.gen_tokenizer = AutoTokenizer.from_pretrained(generator_id, local_files_only=local_files_only)
         self.gen_model = AutoModelForCausalLM.from_pretrained(
-            generator_id, torch_dtype=dtype, device_map="auto" if self.device == "cuda" else None
+            generator_id,
+            torch_dtype=dtype,
+            device_map="auto" if self.device == "cuda" else None,
+            local_files_only=local_files_only,
         )
 
         print(f"⚖️ [LLM] 正在加载裁判模型 (Judge): {judge_id} ...")
-        self.judge_tokenizer = AutoTokenizer.from_pretrained(judge_id)
+        self.judge_tokenizer = AutoTokenizer.from_pretrained(judge_id, local_files_only=local_files_only)
         self.judge_model = AutoModelForCausalLM.from_pretrained(
-            judge_id, torch_dtype=dtype, device_map="auto" if self.device == "cuda" else None
+            judge_id,
+            torch_dtype=dtype,
+            device_map="auto" if self.device == "cuda" else None,
+            local_files_only=local_files_only,
         )
         print("✅ [LLM] 双引擎异构大模型就绪，准备降维打击！")
 

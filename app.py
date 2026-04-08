@@ -101,15 +101,23 @@ def ensure_evaluator_engine() -> Tuple[bool, str]:
         return True, ""
     if model_init_attempted:
         log_event("LLM 初始化曾失败，跳过重复初始化。")
-        return False, "模型初始化已失败，请检查模型路径或显存"
+        return False, "模型初始化已失败，请检查模型路径/网络或显存"
 
     model_init_attempted = True
     SYSTEM_STATE["engine_status"] = "LLM 引擎冷启动中..."
     log_event("开始冷启动 LLM 引擎。")
     try:
+        generator_id = os.getenv("RAG_GENERATOR_ID", "Qwen/Qwen3.5-2B")
+        judge_id = os.getenv("RAG_JUDGE_ID", r"D:\models\Qwen3.5-9B")
+        local_files_only = os.getenv("RAG_LOCAL_FILES_ONLY", "1") == "1"
+
+        log_event(
+            f"LLM 配置: generator={generator_id}, judge={judge_id}, local_files_only={local_files_only}"
+        )
         evaluator = RAGEvaluator(
-            generator_id="Qwen/Qwen3.5-2B",
-            judge_id=r"D:\models\Qwen3.5-9B",
+            generator_id=generator_id,
+            judge_id=judge_id,
+            local_files_only=local_files_only,
         )
         SYSTEM_STATE["model_ready"] = True
         SYSTEM_STATE["engine_status"] = "LLM 引擎已就绪"
@@ -447,7 +455,7 @@ theme = gr.themes.Soft(
     font=[gr.themes.GoogleFont("Inter"), "sans-serif"],
 )
 
-with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
+with gr.Blocks(title="企业级 RAG 评测系统") as demo:
     gr.Markdown(
         """
 <div style="text-align:center; margin: 8px 0 14px 0;">
@@ -557,4 +565,5 @@ if __name__ == "__main__":
         server_port=7860,
         share=False,
         inbrowser=True,
+        theme=theme,
     )
