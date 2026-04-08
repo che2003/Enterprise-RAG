@@ -34,6 +34,17 @@ SYSTEM_STATE: Dict[str, object] = {
 }
 
 DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
+TAB_CHAT = "tab_chat"
+TAB_KB = "tab_kb"
+TAB_DASHBOARD = "tab_dashboard"
+
+
+def ts() -> str:
+    return time.strftime("%H:%M:%S")
+
+
+def log_event(message: str) -> None:
+    print(f"[{ts()}] {message}")
 
 
 def ts() -> str:
@@ -202,6 +213,7 @@ def build_knowledge_base(file_objs, chunk_size):
             "⚠️ 索引未就绪",
             build_system_status_markdown(),
             "{}",
+            gr.update(selected=TAB_KB),
         )
         return
 
@@ -214,6 +226,7 @@ def build_knowledge_base(file_objs, chunk_size):
             "⚠️ 索引未就绪",
             build_system_status_markdown(),
             success_error_payload("INVALID_CHUNK_SIZE", "chunk_size 非法", "请输入整数并重试"),
+            gr.update(selected=TAB_KB),
         )
         return
 
@@ -225,6 +238,7 @@ def build_knowledge_base(file_objs, chunk_size):
             "❌ 索引构建失败",
             build_system_status_markdown(),
             success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试"),
+            gr.update(selected=TAB_KB),
         )
         return
 
@@ -237,20 +251,20 @@ def build_knowledge_base(file_objs, chunk_size):
     logs.append(f"[{ts()}] 📦 收到 {len(file_paths)} 篇文献: {', '.join(doc_names)}")
     logs.append(f"[{ts()}] ⚙️ 当前切分块大小设置: {chunk_size}")
     log_event(f"开始建库：docs={len(file_paths)}, chunk_size={chunk_size}")
-    yield "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
+    yield "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
 
     try:
         logs.append(f"\n[{ts()}] >> 正在构建 Method A (基础固定切分)...")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
 
         chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=chunk_size, overlap=50)
         logs.append(f"[{ts()}] Method A 切分完成，准备写入向量/BM25 索引...")
         retriever_A.build_index(chunks_A)
         logs.append(f"[{ts()}] ✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
 
         logs.append(f"\n[{ts()}] >> 正在构建 Method B (物理 BBox 降噪切分)...")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
 
         chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=chunk_size)
         logs.append(f"[{ts()}] Method B 切分完成，准备写入向量/BM25 索引...")
@@ -265,7 +279,7 @@ def build_knowledge_base(file_objs, chunk_size):
         logs.append(f"[{ts()}] 📌 索引摘要：{summary}")
         logs.append(f"\n[{ts()}] 🎉 知识库全部构建完毕！请前往【智能问答】测试。")
         log_event(f"建库完成：{summary}")
-        yield "\n".join(logs), gr.update(), "✅ 索引就绪", build_system_status_markdown(), "{}"
+        yield "\n".join(logs), gr.update(), "✅ 索引就绪", build_system_status_markdown(), "{}", gr.update(selected=TAB_CHAT)
     except Exception as e:
         SYSTEM_STATE["index_ready"] = False
         SYSTEM_STATE["index_summary"] = f"构建失败: {e}"
@@ -278,6 +292,7 @@ def build_knowledge_base(file_objs, chunk_size):
             "❌ 索引构建失败",
             build_system_status_markdown(),
             success_error_payload("INDEX_BUILD_FAILED", str(e), "检查 PDF 与参数后重试"),
+            gr.update(selected=TAB_KB),
         )
 
 
@@ -292,6 +307,7 @@ def load_demo_knowledge_base():
             "❌ Demo 加载失败",
             build_system_status_markdown(),
             success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试"),
+            gr.update(selected=TAB_KB),
         )
 
     if not os.path.exists(DEMO_CHUNKS_PATH):
@@ -303,6 +319,7 @@ def load_demo_knowledge_base():
             "❌ Demo 加载失败",
             build_system_status_markdown(),
             success_error_payload("DEMO_FILE_MISSING", message, "确认仓库内 demo_chunks.json 是否存在"),
+            gr.update(selected=TAB_KB),
         )
 
     try:
@@ -344,7 +361,7 @@ def load_demo_knowledge_base():
             f"[{ts()}] 📌 索引摘要：{summary}",
         ]
         log_event(f"Demo 加载完成：{summary}")
-        return "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "✅ Demo 索引就绪", build_system_status_markdown(), "{}"
+        return "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "✅ Demo 索引就绪", build_system_status_markdown(), "{}", gr.update(selected=TAB_CHAT)
     except Exception as e:
         SYSTEM_STATE["index_ready"] = False
         SYSTEM_STATE["index_summary"] = f"Demo 加载失败: {e}"
@@ -355,6 +372,7 @@ def load_demo_knowledge_base():
             "❌ Demo 加载失败",
             build_system_status_markdown(),
             success_error_payload("DEMO_LOAD_FAILED", str(e), "请检查 demo_chunks.json 格式"),
+            gr.update(selected=TAB_KB),
         )
 
 
@@ -449,8 +467,8 @@ with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
 
     system_status_bar = gr.Markdown(value=build_system_status_markdown())
 
-    with gr.Tabs():
-        with gr.Tab("💬 智能交互中心"):
+    with gr.Tabs(selected=TAB_KB) as main_tabs:
+        with gr.Tab("💬 智能交互中心", id=TAB_CHAT):
             with gr.Row():
                 with gr.Column(scale=1, min_width=320):
                     gr.Markdown("### ⚙️ 检索控制台")
@@ -492,7 +510,7 @@ with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
                 outputs=[msg_input, chatbot, source_display, chat_error_json],
             )
 
-        with gr.Tab("📚 私有知识库注入"):
+        with gr.Tab("📚 私有知识库注入", id=TAB_KB):
             gr.Markdown("上传 PDF 后，系统将依次构建 Method A / Method B 双路索引。")
             gr.Markdown("若首次冷启动不想等待全量建库，可先点击 **先看看效果（加载 Demo 数据）** 立即体验。")
             with gr.Row():
@@ -510,16 +528,16 @@ with gr.Blocks(title="企业级 RAG 评测系统", theme=theme) as demo:
             build_index_btn.click(
                 build_knowledge_base,
                 inputs=[file_upload, chunk_size_num],
-                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
+                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json, main_tabs],
             )
 
             load_demo_btn.click(
                 load_demo_knowledge_base,
                 inputs=None,
-                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
+                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json, main_tabs],
             )
 
-        with gr.Tab("📊 自动化评测监控大盘"):
+        with gr.Tab("📊 自动化评测监控大盘", id=TAB_DASHBOARD):
             gr.Markdown("系统将自动读取 `record/` 或 `记录/` 目录下最新 CSV。")
             with gr.Row():
                 refresh_btn = gr.Button("🔄 刷新最新大盘数据", variant="primary")
