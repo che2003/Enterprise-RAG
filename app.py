@@ -47,6 +47,14 @@ def log_event(message: str) -> None:
     print(f"[{ts()}] {message}")
 
 
+def ts() -> str:
+    return time.strftime("%H:%M:%S")
+
+
+def log_event(message: str) -> None:
+    print(f"[{ts()}] {message}")
+
+
 def build_system_status_markdown() -> str:
     embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
     model_flag = "✅" if SYSTEM_STATE["model_ready"] else "❌"
