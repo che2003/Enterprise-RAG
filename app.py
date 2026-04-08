@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import time
 import glob
+import json
 
 # 导入底层引擎
 from src.data_pipeline import DataPipeline
@@ -16,20 +17,84 @@ print("==================================================")
 # ==========================================
 # 1. 全局单例初始化
 # ==========================================
-pipeline = DataPipeline()
-retriever_A = HybridRetriever()
-retriever_B = HybridRetriever()
+pipeline = None
+retriever_A = None
+retriever_B = None
+evaluator = None
+model_init_attempted = False
 
-# 💡 建议：如果只是跑 UI 演示，可以不传 judge_id 以节省显存
-try:
-    evaluator = RAGEvaluator(
-        generator_id="Qwen/Qwen3.5-2B",
-        judge_id=r"D:\models\Qwen3.5-9B"
+
+SYSTEM_STATE = {
+    "embedding_ready": False,
+    "model_ready": False,
+    "engine_status": "冷启动未完成（首次使用时按需初始化）",
+    "index_ready": False,
+    "index_summary": "尚未构建索引",
+    "dashboard_summary": "尚未读取评测 CSV"
+}
+
+
+def build_system_status_markdown():
+    """统一状态栏：展示 embedding/model/index 初始化与运行状态"""
+    embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
+    model_flag = "✅" if SYSTEM_STATE["model_ready"] else "❌"
+    index_flag = "✅" if SYSTEM_STATE["index_ready"] else "⚠️"
+
+    return (
+        "### 🟢 系统统一状态栏\n"
+        f"- Embedding 引擎：{embedding_flag}\n"
+        f"- LLM 生成引擎：{model_flag}\n"
+        f"- 冷启动状态：{SYSTEM_STATE['engine_status']}\n"
+        f"- 检索索引：{index_flag}\n"
+        f"- 索引摘要：{SYSTEM_STATE['index_summary']}\n"
+        f"- 大盘读取状态：{SYSTEM_STATE['dashboard_summary']}"
     )
-    print("✅ [系统] LLM 引擎加载成功！")
-except Exception as e:
-    print(f"⚠️ [系统] LLM 引擎加载失败，请检查显存或路径: {e}")
-    evaluator = None
+
+
+def ensure_retrieval_engines():
+    """按需初始化检索引擎，避免启动阶段阻塞。"""
+    global pipeline, retriever_A, retriever_B
+    if pipeline and retriever_A and retriever_B:
+        return True, ""
+
+    SYSTEM_STATE["engine_status"] = "检索引擎冷启动中..."
+    try:
+        pipeline = DataPipeline()
+        retriever_A = HybridRetriever()
+        retriever_B = HybridRetriever()
+        SYSTEM_STATE["embedding_ready"] = True
+        SYSTEM_STATE["engine_status"] = "检索引擎已就绪"
+        return True, ""
+    except Exception as e:
+        SYSTEM_STATE["embedding_ready"] = False
+        SYSTEM_STATE["engine_status"] = f"检索引擎初始化失败: {e}"
+        return False, str(e)
+
+
+def ensure_evaluator_engine():
+    """按需初始化生成模型，避免应用冷启动卡死。"""
+    global evaluator, model_init_attempted
+    if evaluator is not None:
+        return True, ""
+    if model_init_attempted:
+        return False, "模型初始化已失败，请检查模型路径或显存"
+
+    model_init_attempted = True
+    SYSTEM_STATE["engine_status"] = "LLM 引擎冷启动中..."
+    try:
+        evaluator = RAGEvaluator(
+            generator_id="Qwen/Qwen3.5-2B",
+            judge_id=r"D:\models\Qwen3.5-9B"
+        )
+        SYSTEM_STATE["model_ready"] = True
+        SYSTEM_STATE["engine_status"] = "LLM 引擎已就绪"
+        print("✅ [系统] LLM 引擎加载成功！")
+        return True, ""
+    except Exception as e:
+        SYSTEM_STATE["model_ready"] = False
+        SYSTEM_STATE["engine_status"] = f"LLM 初始化失败: {e}"
+        print(f"⚠️ [系统] LLM 引擎加载失败，请检查显存或路径: {e}")
+        return False, str(e)
 
 
 # ==========================================
@@ -45,6 +110,16 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
     # 将前端的防串库选项传递给底层引擎
     doc_filter = target_doc if target_doc != "🌍 全局检索 (混合所有文档)" else None
 
+    ready, init_error = ensure_retrieval_engines()
+    if not ready:
+        error_payload = {
+            "error_code": "ENGINE_INIT_FAILED",
+            "message": init_error,
+            "action": "请检查依赖与日志后重启服务"
+        }
+        history.append((user_message, f"❌ 检索引擎初始化失败 [{error_payload['error_code']}]"))
+        return "", history, json.dumps(error_payload, ensure_ascii=False, indent=2)
+
     # 💡 核心修复：加入 try-except 块，优雅捕获“未建库”的错误
     try:
         if "Method A" in strategy:
@@ -54,15 +129,23 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
             context_str, chunks_list = retriever_B.hybrid_search_rrf(user_message, top_k=int(top_k),
                                                                      target_doc_name=doc_filter)
     except ValueError as e:
-        # 如果底层抛出 "索引未构建！"
-        error_msg = f"⚠️ 检索失败：{str(e)} 请先前往【📚 私有知识库注入】上传 PDF 并构建索引。"
+        error_payload = {
+            "error_code": "INDEX_NOT_READY",
+            "message": str(e),
+            "action": "请先上传 PDF 并点击构建索引"
+        }
+        error_msg = f"⚠️ 检索失败 [{error_payload['error_code']}]：{error_payload['action']}"
         history.append((user_message, error_msg))
-        return "", history, "无索引数据"
+        return "", history, json.dumps(error_payload, ensure_ascii=False, indent=2)
     except Exception as e:
-        # 捕获其他潜在的未知错误，防止 UI 卡死
-        error_msg = f"❌ 检索过程中发生系统异常：{str(e)}"
+        error_payload = {
+            "error_code": "RAG_RUNTIME_ERROR",
+            "message": str(e),
+            "action": "请重试；如仍失败，请重新构建索引并检查模型加载状态"
+        }
+        error_msg = f"❌ 检索过程中发生系统异常 [{error_payload['error_code']}]"
         history.append((user_message, error_msg))
-        return "", history, "系统异常"
+        return "", history, json.dumps(error_payload, ensure_ascii=False, indent=2)
 
     if not chunks_list:
         ans = "知识库中暂未检索到相关内容，请尝试更换问题或扩充知识库。"
@@ -71,7 +154,11 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
         if evaluator:
             ans = evaluator.generate_answer(user_message, context_str)
         else:
-            ans = "模型未加载，这是 Mock 答案：根据检索结果，无法确定准确答案。"
+            model_ready, _ = ensure_evaluator_engine()
+            if model_ready and evaluator:
+                ans = evaluator.generate_answer(user_message, context_str)
+            else:
+                ans = "模型冷启动失败，当前返回检索摘要模式。请检查模型路径或显存。"
 
     history.append((user_message, ans))
     return "", history, context_str
@@ -80,10 +167,22 @@ def chat_with_rag(user_message, history, strategy, top_k, target_doc):
 def build_knowledge_base(file_objs, chunk_size):
     """处理用户上传的 PDF 并构建双路索引，同时更新下拉菜单"""
     if not file_objs:
-        yield "⚠️ 未检测到文件，请先上传 PDF。", gr.update()
+        yield "⚠️ 未检测到文件，请先上传 PDF。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
+        return
+
+    try:
+        chunk_size = int(chunk_size)
+    except Exception:
+        yield "⚠️ chunk_size 非法，请输入有效整数（例如 400）。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
+        return
+
+    ready, init_error = ensure_retrieval_engines()
+    if not ready:
+        yield f"❌ 检索引擎初始化失败：{init_error}", gr.update(), build_system_status_markdown(), "❌ 索引构建失败"
         return
 
     log_messages = []
+    start_time = time.time()
     file_paths = [f.name for f in file_objs]
     doc_names = [os.path.basename(p) for p in file_paths]
 
@@ -92,36 +191,63 @@ def build_knowledge_base(file_objs, chunk_size):
 
     log_messages.append(f"📦 收到 {len(file_paths)} 篇文献: {', '.join(doc_names)}")
     log_messages.append(f"⚙️ 当前切分块大小设置: {chunk_size}")
-    yield "\n".join(log_messages), gr.update(choices=dropdown_choices, value="🌍 全局检索 (混合所有文档)")
+    yield "\n".join(log_messages), gr.update(choices=dropdown_choices, value="🌍 全局检索 (混合所有文档)"), build_system_status_markdown(), "⏳ 索引构建中..."
 
     log_messages.append("\n>> 正在构建 Method A (基础固定切分)...")
-    yield "\n".join(log_messages), gr.update()
+    yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=int(chunk_size), overlap=50)
-    retriever_A.build_index(chunks_A)
-    log_messages.append(f"✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
-    yield "\n".join(log_messages), gr.update()
+    try:
+        chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=chunk_size, overlap=50)
+        retriever_A.build_index(chunks_A)
+        log_messages.append(f"✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    log_messages.append("\n>> 正在构建 Method B (物理 BBox 降噪切分)...")
-    yield "\n".join(log_messages), gr.update()
+        log_messages.append("\n>> 正在构建 Method B (物理 BBox 降噪切分)...")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=int(chunk_size))
-    retriever_B.build_index(chunks_B)
-    log_messages.append(f"✅ Method B 构建完成，共生成 {len(chunks_B)} 个 Chunk。")
-    log_messages.append("\n🎉 知识库全部构建完毕！请前往【智能问答】测试。")
-    yield "\n".join(log_messages), gr.update()
+        chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=chunk_size)
+        retriever_B.build_index(chunks_B)
+        elapsed = time.time() - start_time
+        summary = f"chunk数 A/B: {len(chunks_A)}/{len(chunks_B)} | 文档数: {len(doc_names)} | 耗时: {elapsed:.2f}s"
+        SYSTEM_STATE["index_ready"] = True
+        SYSTEM_STATE["index_summary"] = summary
+        log_messages.append(f"✅ Method B 构建完成，共生成 {len(chunks_B)} 个 Chunk。")
+        log_messages.append(f"📌 索引摘要：{summary}")
+        log_messages.append("\n🎉 知识库全部构建完毕！请前往【智能问答】测试。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "✅ 索引就绪"
+    except Exception as e:
+        SYSTEM_STATE["index_ready"] = False
+        SYSTEM_STATE["index_summary"] = f"构建失败: {e}"
+        log_messages.append(f"\n❌ 索引构建失败：{e}")
+        log_messages.append("👉 建议：检查 PDF 是否损坏、chunk_size 是否过大，或先使用单个 PDF 测试。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "❌ 索引构建失败"
 
 
 def load_dashboard_data():
     """读取 record 目录下的最新 CSV 并转化为 DataFrame 展示"""
+    required_cols = [
+        "A_Hit", "A_MRR", "A_Faith", "A_Rel", "A_ROUGE_L",
+        "B_Hit", "B_MRR", "B_Faith", "B_Rel", "B_ROUGE_L"
+    ]
     csv_files = glob.glob("record/*.csv")
     if not csv_files:
-        return pd.DataFrame({"提示": ["暂无评测数据，请先运行 main.py 压测"]})
+        SYSTEM_STATE["dashboard_summary"] = "未找到 record/*.csv"
+        return (
+            pd.DataFrame({"提示": ["暂无评测数据，请先运行 main.py 压测"]}),
+            "⚠️ 未读取到 CSV 文件",
+            build_system_status_markdown()
+        )
 
     latest_csv = max(csv_files, key=os.path.getctime)
 
     try:
         df = pd.read_csv(latest_csv)
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        dashboard_msg = (
+            f"✅ 已读取: {latest_csv} | 记录数: {len(df)} | "
+            f"缺失列: {', '.join(missing_cols) if missing_cols else '无'}"
+        )
+        SYSTEM_STATE["dashboard_summary"] = dashboard_msg.replace("✅ ", "")
 
         # 修正指标剔除规则，依赖裁判给出的 F=10, R=0 (诚实拒答标志)
         mask_A = ~((df['A_Faith'] == 10) & (df['A_Rel'] == 0))
@@ -153,9 +279,14 @@ def load_dashboard_data():
                 f"{df['B_ROUGE_L'].mean():.4f}"
             ]
         }
-        return pd.DataFrame(data)
+        return pd.DataFrame(data), dashboard_msg, build_system_status_markdown()
     except Exception as e:
-        return pd.DataFrame({"错误": [f"读取数据失败: {e}"]})
+        SYSTEM_STATE["dashboard_summary"] = f"读取失败: {e}"
+        return (
+            pd.DataFrame({"错误": [f"读取数据失败: {e}"]}),
+            f"❌ 读取数据失败：{e}",
+            build_system_status_markdown()
+        )
 
 
 # ==========================================
@@ -171,6 +302,7 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
         <p>基于物理 BBox 排版降噪、混合检索 (RRF) 与大模型异步裁判 (LLM-as-a-Judge) 驱动</p>
     </div>
     """)
+    system_status_bar = gr.Markdown(value=build_system_status_markdown())
 
     with gr.Tabs():
         # ------------------------------------------
@@ -199,6 +331,7 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
                 with gr.Column(scale=3):
                     chatbot = gr.Chatbot(height=450, label="RAG 专家助手")
                     msg_input = gr.Textbox(placeholder="请输入您关于文献的问题，按 Enter 键发送...", label="知识库提问")
+                    qa_index_status = gr.Markdown("⚠️ 索引未就绪")
 
                     with gr.Accordion("🔍 查看底层检索溯源 (Evidence Chains)", open=False):
                         source_display = gr.Textbox(lines=8, label="Top 召回切片 (Chunks)", interactive=False)
@@ -229,7 +362,7 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
             build_index_btn.click(
                 build_knowledge_base,
                 inputs=[file_upload, chunk_size_num],
-                outputs=[index_log, doc_selector]
+                outputs=[index_log, doc_selector, system_status_bar, qa_index_status]
             )
 
         # ------------------------------------------
@@ -241,11 +374,12 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
 
             with gr.Row():
                 refresh_btn = gr.Button("🔄 刷新最新大盘数据", variant="primary")
+                dashboard_status = gr.Textbox(label="大盘刷新状态", interactive=False)
 
             results_df = gr.Dataframe(label="企业级 RAG 核心指标多维对比看板", interactive=False)
 
-            refresh_btn.click(load_dashboard_data, inputs=None, outputs=[results_df])
-            demo.load(load_dashboard_data, inputs=None, outputs=[results_df])
+            refresh_btn.click(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar], queue=False)
+            demo.load(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar], queue=False)
 
 # ==========================================
 # 4. 启动服务
