@@ -115,6 +115,13 @@ def build_knowledge_base(file_objs, chunk_size):
     """处理用户上传的 PDF 并构建双路索引，同时更新下拉菜单"""
     if not file_objs:
         yield "⚠️ 未检测到文件，请先上传 PDF。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
+        
+        return
+
+    try:
+        chunk_size = int(chunk_size)
+    except Exception:
+        yield "⚠️ chunk_size 非法，请输入有效整数（例如 400）。", gr.update(), build_system_status_markdown(), "⚠️ 索引未就绪"
         return
 
     log_messages = []
@@ -132,24 +139,31 @@ def build_knowledge_base(file_objs, chunk_size):
     log_messages.append("\n>> 正在构建 Method A (基础固定切分)...")
     yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=int(chunk_size), overlap=50)
-    retriever_A.build_index(chunks_A)
-    log_messages.append(f"✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
-    yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
+    try:
+        chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=chunk_size, overlap=50)
+        retriever_A.build_index(chunks_A)
+        log_messages.append(f"✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    log_messages.append("\n>> 正在构建 Method B (物理 BBox 降噪切分)...")
-    yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
+        log_messages.append("\n>> 正在构建 Method B (物理 BBox 降噪切分)...")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "⏳ 索引构建中..."
 
-    chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=int(chunk_size))
-    retriever_B.build_index(chunks_B)
-    elapsed = time.time() - start_time
-    summary = f"chunk数 A/B: {len(chunks_A)}/{len(chunks_B)} | 文档数: {len(doc_names)} | 耗时: {elapsed:.2f}s"
-    SYSTEM_STATE["index_ready"] = True
-    SYSTEM_STATE["index_summary"] = summary
-    log_messages.append(f"✅ Method B 构建完成，共生成 {len(chunks_B)} 个 Chunk。")
-    log_messages.append(f"📌 索引摘要：{summary}")
-    log_messages.append("\n🎉 知识库全部构建完毕！请前往【智能问答】测试。")
-    yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "✅ 索引就绪"
+        chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=chunk_size)
+        retriever_B.build_index(chunks_B)
+        elapsed = time.time() - start_time
+        summary = f"chunk数 A/B: {len(chunks_A)}/{len(chunks_B)} | 文档数: {len(doc_names)} | 耗时: {elapsed:.2f}s"
+        SYSTEM_STATE["index_ready"] = True
+        SYSTEM_STATE["index_summary"] = summary
+        log_messages.append(f"✅ Method B 构建完成，共生成 {len(chunks_B)} 个 Chunk。")
+        log_messages.append(f"📌 索引摘要：{summary}")
+        log_messages.append("\n🎉 知识库全部构建完毕！请前往【智能问答】测试。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "✅ 索引就绪"
+    except Exception as e:
+        SYSTEM_STATE["index_ready"] = False
+        SYSTEM_STATE["index_summary"] = f"构建失败: {e}"
+        log_messages.append(f"\n❌ 索引构建失败：{e}")
+        log_messages.append("👉 建议：检查 PDF 是否损坏、chunk_size 是否过大，或先使用单个 PDF 测试。")
+        yield "\n".join(log_messages), gr.update(), build_system_status_markdown(), "❌ 索引构建失败"
 
 
 def load_dashboard_data():
@@ -307,8 +321,8 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
 
             results_df = gr.Dataframe(label="企业级 RAG 核心指标多维对比看板", interactive=False)
 
-            refresh_btn.click(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar])
-            demo.load(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar])
+            refresh_btn.click(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar], queue=False)
+            demo.load(load_dashboard_data, inputs=None, outputs=[results_df, dashboard_status, system_status_bar], queue=False)
 
 # ==========================================
 # 4. 启动服务
