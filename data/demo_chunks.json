@@ -1,0 +1,27 @@
+{
+  "meta": {
+    "name": "enterprise-rag-demo-mini",
+    "description": "内置极小演示语料，用于冷启动时快速体验系统界面与流程。",
+    "source_doc": "demo_enterprise_rag_notes.pdf"
+  },
+  "chunks_A": [
+    "[Source: demo_enterprise_rag_notes.pdf]\nEnterprise RAG demo note: The system supports two retrieval strategies. Method A uses fixed-size chunking and Method B uses layout-aware chunking with bounding-box denoising.",
+    "[Source: demo_enterprise_rag_notes.pdf]\nCold-start guidance: If full indexing is not ready, load demo chunks first so users can enter the main interface immediately and test Q&A plus dashboard tabs.",
+    "[Source: demo_enterprise_rag_notes.pdf]\nRecommended fallback response: explain that demo mode is for体验 and should be replaced by full PDF indexing for production evaluation accuracy."
+  ],
+  "chunks_B": [
+    "[Source: demo_enterprise_rag_notes.pdf]\nEnterprise RAG demo note: Method B keeps layout semantics by grouping meaningful text blocks and dropping noisy OCR fragments.",
+    "[Source: demo_enterprise_rag_notes.pdf]\nDemo mode objective: reduce waiting time during initialization and provide an out-of-box experience for product walkthrough.",
+    "[Source: demo_enterprise_rag_notes.pdf]\nAfter demo verification, users can upload real PDFs and rebuild dual indexes to obtain rigorous retrieval and evaluation results."
+  ],
+  "ground_truth": [
+    {
+      "question": "为什么要提供 Demo 模式？",
+      "answer": "为了在冷启动期间降低等待成本，让用户快速体验系统主流程与界面。"
+    },
+    {
+      "question": "Demo 模式和正式建库有什么区别？",
+      "answer": "Demo 模式是小样本预置数据，正式建库基于用户上传 PDF，结果更完整可靠。"
+    }
+  ]
+}
