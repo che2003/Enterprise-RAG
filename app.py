@@ -97,6 +97,31 @@ def ensure_evaluator_engine():
         return False, str(e)
 
 
+SYSTEM_STATE = {
+    "embedding_ready": True,   # retriever 单例可用即视作 embedding 引擎就绪
+    "model_ready": evaluator is not None,
+    "index_ready": False,
+    "index_summary": "尚未构建索引",
+    "dashboard_summary": "尚未读取评测 CSV"
+}
+
+
+def build_system_status_markdown():
+    """统一状态栏：展示 embedding/model/index 初始化与运行状态"""
+    embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
+    model_flag = "✅" if SYSTEM_STATE["model_ready"] else "❌"
+    index_flag = "✅" if SYSTEM_STATE["index_ready"] else "⚠️"
+
+    return (
+        "### 🟢 系统统一状态栏\n"
+        f"- Embedding 引擎：{embedding_flag}\n"
+        f"- LLM 生成引擎：{model_flag}\n"
+        f"- 检索索引：{index_flag}\n"
+        f"- 索引摘要：{SYSTEM_STATE['index_summary']}\n"
+        f"- 大盘读取状态：{SYSTEM_STATE['dashboard_summary']}"
+    )
+
+
 # ==========================================
 # 2. 核心交互函数绑定
 # ==========================================
