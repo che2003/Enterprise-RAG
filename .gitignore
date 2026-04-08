@@ -1,0 +1,16 @@
+# 忽略虚拟环境
+venv/
+env/
+.env
+
+# 忽略缓存
+__pycache__/
+*.pyc
+
+# 忽略测试数据和日志大盘
+data/raw_papers/
+record/
+
+# 如果你本地有模型权重，也要忽略（比如 D盘的 Qwen 模型不会在这个目录，但防范于未然）
+*.safetensors
+*.bin

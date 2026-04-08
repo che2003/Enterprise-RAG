@@ -1,0 +1,29 @@
+Timestamp,Parameters,Q_ID,Question,Ground_Truth,A_Hit,A_MRR,A_CPrec,A_Faith,A_Rel,A_ROUGE_L,B_Hit,B_MRR,B_CPrec,B_Faith,B_Rel,B_ROUGE_L
+2026-04-07 23:41:59,Chunk:400|Gen:Qwen3.5-2B,1,which multilingual approaches do they compare with?,BIBREF19 BIBREF20,1,1.0,1.0,10,3,0.0,1,1.0,1.0,10,10,0.0
+2026-04-07 23:43:03,Chunk:400|Gen:Qwen3.5-2B,2,what are the pivot-based baselines?,pivoting pivoting$_{\rm m}$,1,1.0,0.8,10,10,0.0,1,1.0,0.4,3,4,0.0
+2026-04-07 23:43:57,Chunk:400|Gen:Qwen3.5-2B,3,which datasets did they experiment with?,Europarl MultiUN,1,1.0,0.8,1,4,0.0,1,1.0,0.6,10,3,0.0
+2026-04-07 23:44:54,Chunk:400|Gen:Qwen3.5-2B,4,what language pairs are explored?,"De-En, En-Fr, Fr-En, En-Es, Ro-En, En-De, Ar-En, En-Ru",1,0.5,0.2,10,10,0.0,1,1.0,0.6,2,2,0.0
+2026-04-07 23:45:58,Chunk:400|Gen:Qwen3.5-2B,5,what ner models were evaluated?,Stanford NER spaCy 2.0  recurrent model with a CRF top layer,1,1.0,0.6,0,4,0.1,1,1.0,0.4,0,8,0.1333
+2026-04-07 23:47:02,Chunk:400|Gen:Qwen3.5-2B,6,what is the source of the news sentences?,ilur.am,1,1.0,1.0,2,2,0.5,1,1.0,0.8,10,10,0.0833
+2026-04-07 23:47:57,Chunk:400|Gen:Qwen3.5-2B,7,what are the topics pulled from Reddit?,"politics, business, science, and AskReddit, and 1000 additional posts from the Reddit frontpage.",1,1.0,0.6,3,2,0.1429,1,1.0,0.6,0,10,0.0
+2026-04-07 23:48:56,Chunk:400|Gen:Qwen3.5-2B,8,What predictive model do they build?,logistic regression models,1,0.25,0.2,4,5,0.2222,1,0.5,0.2,10,10,0.0
+2026-04-07 23:49:55,Chunk:400|Gen:Qwen3.5-2B,9,What accuracy does the proposed system achieve?,"F1 scores of 85.99 on the DL-PS data,  75.15 on the EC-MT data and 71.53 on the EC-UQ data",1,1.0,0.2,10,10,0.0,1,1.0,0.6,10,1,0.0
+2026-04-07 23:50:54,Chunk:400|Gen:Qwen3.5-2B,10,On how many language pairs do they show that preordering assisting language sentences helps translation quality?,5,1,1.0,1.0,10,2,0.0,1,1.0,1.0,10,10,0.0
+2026-04-07 23:51:51,Chunk:400|Gen:Qwen3.5-2B,11,Which dataset(s) do they experiment with?,IITB English-Hindi parallel corpus BIBREF22 ILCI English-Hindi parallel corpus,1,0.3333333333333333,0.2,10,10,0.0,1,0.5,0.6,0,10,0.0
+2026-04-07 23:52:47,Chunk:400|Gen:Qwen3.5-2B,12,Which information about text structure is included in the corpus?,"paragraphs lines Information on physical page segmentation (for PDFs only), paragraph segmentation, and line segmentation",1,1.0,1.0,3,4,0.2,1,1.0,1.0,1,4,0.2222
+2026-04-07 23:53:44,Chunk:400|Gen:Qwen3.5-2B,13,Which information about typography is included in the corpus?,"font type font style Information on the font type and font style (e.g., italics, bold print) of a token and its position on the physical page",1,1.0,0.8,10,3,0.0625,1,1.0,1.0,4,10,0.2667
+2026-04-07 23:54:41,Chunk:400|Gen:Qwen3.5-2B,14,On which benchmarks they achieve the state of the art?,SimpleQuestions WebQSP,1,1.0,0.8,10,3,0.6667,1,1.0,0.8,3,4,0.8
+2026-04-07 23:55:36,Chunk:400|Gen:Qwen3.5-2B,15,What they use in their propsoed framework?,break the relation names into word sequences  relation-level and word-level relation representations bidirectional LSTMs (BiLSTMs)  residual learning method,0,0.0,0.0,10,3,0.0,0,0.0,0.0,4,5,0.0526
+2026-04-07 23:56:30,Chunk:400|Gen:Qwen3.5-2B,16,What does KBQA abbreviate for,Knowledge Base Question Answering,1,1.0,0.2,2,3,0.7273,1,0.5,0.2,3,1,0.7273
+2026-04-07 23:57:27,Chunk:400|Gen:Qwen3.5-2B,17,What is te core component for KBQA?,answer questions by obtaining information from KB tuples,1,0.2,0.2,10,10,0.0,1,0.5,0.2,10,2,0.0
+2026-04-07 23:58:27,Chunk:400|Gen:Qwen3.5-2B,18,What experiments are proposed to test that upper layers produce context-specific embeddings?,"They measure self-similarity, intra-sentence similarity and maximum explainable variance of the embeddings in the upper layers.",1,1.0,1.0,1,2,0.1395,1,1.0,1.0,3,3,0.1463
+2026-04-07 23:59:30,Chunk:400|Gen:Qwen3.5-2B,19,How do they calculate a static embedding for each word?,They use the first principal component of a word's contextualized representation in a given layer as its static embedding.,1,1.0,1.0,2,5,0.2581,1,1.0,1.0,10,2,0.8333
+2026-04-08 00:00:31,Chunk:400|Gen:Qwen3.5-2B,20,What is the performance of BERT on the task?,"F1 scores are:
+HUBES-PHI: Detection(0.965), Classification relaxed (0.95), Classification strict (0.937)
+Medoccan: Detection(0.972), Classification (0.967)",1,1.0,0.2,0,10,0.0465,1,1.0,0.8,6,2,0.0889
+2026-04-08 00:01:30,Chunk:400|Gen:Qwen3.5-2B,21,What are the other algorithms tested?,NER model CRF classifier trained with sklearn-crfsuite classifier has been developed that consists of regular-expressions and dictionary look-up,0,0.0,0.0,2,10,0.069,1,0.25,0.2,2,0,0.129
+2026-04-08 00:02:24,Chunk:400|Gen:Qwen3.5-2B,22,What are the clinical datasets used in the paper?,MEDDOCAN NUBes-PHI,1,1.0,0.8,1,2,0.2667,1,1.0,0.6,0,10,0.5
+2026-04-08 00:03:18,Chunk:400|Gen:Qwen3.5-2B,23,how is model compactness measured?,Using file size on disk,0,0.0,0.0,0,10,0.0,0,0.0,0.0,0,10,0.0
+2026-04-08 00:04:10,Chunk:400|Gen:Qwen3.5-2B,24,what was the baseline?,system presented by deri2016grapheme,1,1.0,1.0,10,10,0.0,1,1.0,0.6,2,10,0.0
+2026-04-08 00:05:02,Chunk:400|Gen:Qwen3.5-2B,25,what evaluation metrics were used?,Phoneme Error Rate (PER) Word Error Rate (WER) Word Error Rate 100 (WER 100),1,0.3333333333333333,0.4,10,10,0.2963,1,0.5,0.8,10,4,0.0
+2026-04-08 00:05:55,Chunk:400|Gen:Qwen3.5-2B,26,what datasets did they use?,the Carnegie Mellon Pronouncing Dictionary BIBREF12 the multilingual pronunciation corpus collected by deri2016grapheme  ranscriptions extracted from Wiktionary,1,1.0,0.8,10,10,0.0,1,1.0,0.6,10,10,0.0714

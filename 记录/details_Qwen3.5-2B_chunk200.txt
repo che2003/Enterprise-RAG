@@ -1,0 +1,444 @@
+
+========================================
+❓ [Q 1/26]: which multilingual approaches do they compare with?
+[Ground Truth]: BIBREF19 BIBREF20
+========================================
+
+🔴 [Method A]
+【生成答案】:
+pivoting, multilingual NMT, and cross-lingual transfer without pretraining
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+pivoting, multilingual NMT (MNMT), and cross-lingual transfer without pretraining
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 2/26]: what are the pivot-based baselines?
+[Ground Truth]: pivoting pivoting$_{\rm m}$
+========================================
+
+🔴 [Method A]
+【生成答案】:
+pivot-based method
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 3/26]: which datasets did they experiment with?
+[Ground Truth]: Europarl MultiUN
+========================================
+
+🔴 [Method A]
+【生成答案】:
+DL-PS, EC-MT, EC
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.80
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+DL-PS, EC-MT, and EC-UQ datasets
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.80
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 4/26]: what language pairs are explored?
+[Ground Truth]: De-En, En-Fr, Fr-En, En-Es, Ro-En, En-De, Ar-En, En-Ru
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Hindi-English, Armenian
+【底层 IR 指标】: Hit=1 | MRR=0.33 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 5/26]: what ner models were evaluated?
+[Ground Truth]: Stanford NER spaCy 2.0  recurrent model with a CRF top layer
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Stanford NER
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.2857
+
+🟢 [Method B]
+【生成答案】:
+GloVe word vector models, recurrent models, and spaCy 2.0 named entity recognizer
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.2400
+
+========================================
+❓ [Q 6/26]: what is the source of the news sentences?
+[Ground Truth]: ilur.am
+========================================
+
+🔴 [Method A]
+【生成答案】:
+1909.09067.pdf
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 7/26]: what are the topics pulled from Reddit?
+[Ground Truth]: politics, business, science, and AskReddit, and 1000 additional posts from the Reddit frontpage.
+========================================
+
+🔴 [Method A]
+【生成答案】:
+climate change, abortion, world news, relationship advice, guns, LGBT
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+climate change, abortion, world news, relationship advice, artificial intelligence
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 8/26]: What predictive model do they build?
+[Ground Truth]: logistic regression models
+========================================
+
+🔴 [Method A]
+【生成答案】:
+weighted finite state transducer
+【底层 IR 指标】: Hit=1 | MRR=0.25 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+linear regression model
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.3333
+
+========================================
+❓ [Q 9/26]: What accuracy does the proposed system achieve?
+[Ground Truth]: F1 scores of 85.99 on the DL-PS data,  75.15 on the EC-MT data and 71.53 on the EC-UQ data
+========================================
+
+🔴 [Method A]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+93.3
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 10/26]: On how many language pairs do they show that preordering assisting language sentences helps translation quality?
+[Ground Truth]: 5
+========================================
+
+🔴 [Method A]
+【生成答案】:
+many language pairs
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+many language pairs
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=5 | 相关性=5 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 11/26]: Which dataset(s) do they experiment with?
+[Ground Truth]: IITB English-Hindi parallel corpus BIBREF22 ILCI English-Hindi parallel corpus
+========================================
+
+🔴 [Method A]
+【生成答案】:
+EC-MT and EC
+【底层 IR 指标】: Hit=1 | MRR=0.25 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+NUBES-PHI, MEDDOCAN 2019
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.80
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 12/26]: Which information about text structure is included in the corpus?
+[Ground Truth]: paragraphs lines Information on physical page segmentation (for PDFs only), paragraph segmentation, and line segmentation
+========================================
+
+🔴 [Method A]
+【生成答案】:
+text structure, typography, and images
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.1000
+
+🟢 [Method B]
+【生成答案】:
+paragraphs, lines
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.2353
+
+========================================
+❓ [Q 13/26]: Which information about typography is included in the corpus?
+[Ground Truth]: font type font style Information on the font type and font style (e.g., italics, bold print) of a token and its position on the physical page
+========================================
+
+🔴 [Method A]
+【生成答案】:
+text structure, typography, and images
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0625
+
+🟢 [Method B]
+【生成答案】:
+text structure, typography, and images
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0625
+
+========================================
+❓ [Q 14/26]: On which benchmarks they achieve the state of the art?
+[Ground Truth]: SimpleQuestions WebQSP
+========================================
+
+🔴 [Method A]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+WebQSP, SimpleQuestions, KBQA
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.4000
+
+========================================
+❓ [Q 15/26]: What they use in their propsoed framework?
+[Ground Truth]: break the relation names into word sequences  relation-level and word-level relation representations bidirectional LSTMs (BiLSTMs)  residual learning method
+========================================
+
+🔴 [Method A]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=0 | MRR=0.00 | Context Prec=0.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+grapheme sequence
+【底层 IR 指标】: Hit=0 | MRR=0.00 | Context Prec=0.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 16/26]: What does KBQA abbreviate for
+[Ground Truth]: Knowledge Base Question Answering
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Knowledge Base Question Answering
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=1.0000
+
+🟢 [Method B]
+【生成答案】:
+KBQA Enhanced by Relation Detection
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 17/26]: What is te core component for KBQA?
+[Ground Truth]: answer questions by obtaining information from KB tuples
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Relation detection
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+Relation detection
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 18/26]: What experiments are proposed to test that upper layers produce context-specific embeddings?
+[Ground Truth]: They measure self-similarity, intra-sentence similarity and maximum explainable variance of the embeddings in the upper layers.
+========================================
+
+🔴 [Method A]
+【生成答案】:
+We found that upper layers of ELMo, BERT, and GPT-2 produce more context-specific representations than lower layers.
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.1081
+
+🟢 [Method B]
+【生成答案】:
+The Word Embeddings Benchmarks package
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.1739
+
+========================================
+❓ [Q 19/26]: How do they calculate a static embedding for each word?
+[Ground Truth]: They use the first principal component of a word's contextualized representation in a given layer as its static embedding.
+========================================
+
+🔴 [Method A]
+【生成答案】:
+trix containing a co-occurrence statistic (Levy and Goldberg, 2014a,b)
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0645
+
+🟢 [Method B]
+【生成答案】:
+The first principal component of a word's contextualized representations in a given layer.
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.7647
+
+========================================
+❓ [Q 20/26]: What is the performance of BERT on the task?
+[Ground Truth]: F1 scores are:
+HUBES-PHI: Detection(0.965), Classification relaxed (0.95), Classification strict (0.937)
+Medoccan: Detection(0.972), Classification (0.967)
+========================================
+
+🔴 [Method A]
+【生成答案】:
+BERT outperforms its competitors.
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+BERT outperforms other systems with a 1.9 points higher F1-score and about 5 points higher recall.
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.80
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0488
+
+========================================
+❓ [Q 21/26]: What are the other algorithms tested?
+[Ground Truth]: NER model CRF classifier trained with sklearn-crfsuite classifier has been developed that consists of regular-expressions and dictionary look-up
+========================================
+
+🔴 [Method A]
+【生成答案】:
+V. EXPERIMENTS
+【底层 IR 指标】: Hit=1 | MRR=0.33 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+Stanford NER, spaCy 2.0, Char-biLSTM+biLSTM+CRF
+【底层 IR 指标】: Hit=1 | MRR=0.50 | Context Prec=0.20
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.1333
+
+========================================
+❓ [Q 22/26]: What are the clinical datasets used in the paper?
+[Ground Truth]: MEDDOCAN NUBes-PHI
+========================================
+
+🔴 [Method A]
+【生成答案】:
+MEDDOCAN 2019 and NUBES-PHI
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.40
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.7500
+
+🟢 [Method B]
+【生成答案】:
+NUBES-PHI and MEDDOCAN 2019
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=10 | 相关性=10 | ROUGE-L=0.5000
+
+========================================
+❓ [Q 23/26]: how is model compactness measured?
+[Ground Truth]: Using file size on disk
+========================================
+
+🔴 [Method A]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=0 | MRR=0.00 | Context Prec=0.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=0 | MRR=0.00 | Context Prec=0.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 24/26]: what was the baseline?
+[Ground Truth]: system presented by deri2016grapheme
+========================================
+
+🔴 [Method A]
+【生成答案】:
+I cannot answer
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.80
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+baseline relation detector
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 25/26]: what evaluation metrics were used?
+[Ground Truth]: Phoneme Error Rate (PER) Word Error Rate (WER) Word Error Rate 100 (WER 100)
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Precision (P), Recall (R), and F1 value
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=1 | 相关性=1 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+micro-averaged precision, recall, and F-1 score
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+========================================
+❓ [Q 26/26]: what datasets did they use?
+[Ground Truth]: the Carnegie Mellon Pronouncing Dictionary BIBREF12 the multilingual pronunciation corpus collected by deri2016grapheme  ranscriptions extracted from Wiktionary
+========================================
+
+🔴 [Method A]
+【生成答案】:
+Di, SemEval
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=1.00
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000
+
+🟢 [Method B]
+【生成答案】:
+Two datasets are exploited in this article.
+【底层 IR 指标】: Hit=1 | MRR=1.00 | Context Prec=0.60
+【9B 裁判打分】: 忠实度=0 | 相关性=0 | ROUGE-L=0.0000

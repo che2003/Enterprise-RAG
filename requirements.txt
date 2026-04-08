@@ -1,0 +1,13 @@
+requests
+numpy
+pymupdf
+datasets
+sentence-transformers
+faiss-cpu
+rank_bm25
+transformers
+accelerate
+bitsandbytes
+gradio
+ragas
+matplotlib
