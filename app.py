@@ -28,9 +28,6 @@ SYSTEM_STATE: Dict[str, object] = {
     "dashboard_summary": "尚未读取评测 CSV",
 }
 DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
-TAB_CHAT = "tab_chat"
-TAB_KB = "tab_kb"
-TAB_DASHBOARD = "tab_dashboard"
 def resolve_method_b_chunk_limit() -> int:
     raw = os.getenv("RAG_METHOD_B_MAX_CHUNKS", "1500").strip()
     try:
@@ -187,8 +184,7 @@ def build_knowledge_base(file_objs, chunk_size):
             gr.update(),
             "⚠️ 索引未就绪",
             build_system_status_markdown(),
-            "{}",
-            gr.update(selected=TAB_KB),
+            "{}"
         )
         return
     try:
@@ -199,8 +195,7 @@ def build_knowledge_base(file_objs, chunk_size):
             gr.update(),
             "⚠️ 索引未就绪",
             build_system_status_markdown(),
-            success_error_payload("INVALID_CHUNK_SIZE", "chunk_size 非法", "请输入整数并重试"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("INVALID_CHUNK_SIZE", "chunk_size 非法", "请输入整数并重试")
         )
         return
     ready, init_error = ensure_retrieval_engines()
@@ -210,8 +205,7 @@ def build_knowledge_base(file_objs, chunk_size):
             gr.update(),
             "❌ 索引构建失败",
             build_system_status_markdown(),
-            success_error_payload("ENGINE_INIT_FAILED", init_error, "优先使用本地 embedding 模型（RAG_EMBED_MODEL_PATH）后重试"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("ENGINE_INIT_FAILED", init_error, "优先使用本地 embedding 模型（RAG_EMBED_MODEL_PATH）后重试")
         )
         return
     start = time.time()
@@ -222,17 +216,17 @@ def build_knowledge_base(file_objs, chunk_size):
     logs.append(f"[{ts()}] 📦 收到 {len(file_paths)} 篇文献: {', '.join(doc_names)}")
     logs.append(f"[{ts()}] ⚙️ 当前切分块大小设置: {chunk_size}")
     log_event(f"开始建库：docs={len(file_paths)}, chunk_size={chunk_size}")
-    yield "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
+    yield "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
     try:
         logs.append(f"\n[{ts()}] >> 正在构建 Method A (基础固定切分)...")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
         chunks_A = pipeline.naive_fixed_chunking(file_paths, chunk_size=chunk_size, overlap=50)
         logs.append(f"[{ts()}] Method A 切分完成，准备写入向量/BM25 索引...")
         retriever_A.build_index(chunks_A)
         logs.append(f"[{ts()}] ✅ Method A 构建完成，共生成 {len(chunks_A)} 个 Chunk。")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
         logs.append(f"\n[{ts()}] >> 正在构建 Method B (物理 BBox 降噪切分)...")
-        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
+        yield "\n".join(logs), gr.update(), "⏳ 索引构建中...", build_system_status_markdown(), "{}"
         chunks_B = pipeline.bbox_layout_chunking(file_paths, target_chunk_size=chunk_size)
         max_b_chunks = resolve_method_b_chunk_limit()
         if len(chunks_B) > max_b_chunks:
@@ -241,7 +235,7 @@ def build_knowledge_base(file_objs, chunk_size):
             )
             chunks_B = chunks_B[:max_b_chunks]
         logs.append(f"[{ts()}] Method B 切分完成，共 {len(chunks_B)} 个 Chunk；开始构建向量/BM25 索引（此阶段可能较慢）...")
-        yield "\n".join(logs), gr.update(), "⏳ Method B 索引构建中...", build_system_status_markdown(), "{}", gr.update(selected=TAB_KB)
+        yield "\n".join(logs), gr.update(), "⏳ Method B 索引构建中...", build_system_status_markdown(), "{}"
         b_index_start = time.time()
         retriever_B.build_index(chunks_B)
         logs.append(f"[{ts()}] Method B 索引写入完成，耗时 {time.time() - b_index_start:.2f}s。")
@@ -253,7 +247,7 @@ def build_knowledge_base(file_objs, chunk_size):
         logs.append(f"[{ts()}] 📌 索引摘要：{summary}")
         logs.append(f"\n[{ts()}] 🎉 知识库全部构建完毕！请前往【智能问答】测试。")
         log_event(f"建库完成：{summary}")
-        yield "\n".join(logs), gr.update(), "✅ 索引就绪", build_system_status_markdown(), "{}", gr.update(selected=TAB_CHAT)
+        yield "\n".join(logs), gr.update(), "✅ 索引就绪", build_system_status_markdown(), "{}"
     except Exception as e:
         SYSTEM_STATE["index_ready"] = False
         SYSTEM_STATE["index_summary"] = f"构建失败: {e}"
@@ -265,8 +259,7 @@ def build_knowledge_base(file_objs, chunk_size):
             gr.update(),
             "❌ 索引构建失败",
             build_system_status_markdown(),
-            success_error_payload("INDEX_BUILD_FAILED", str(e), "检查 PDF 与参数后重试"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("INDEX_BUILD_FAILED", str(e), "检查 PDF 与参数后重试")
         )
 def load_demo_knowledge_base():
     log_event("收到 Demo 数据加载请求。")
@@ -278,8 +271,7 @@ def load_demo_knowledge_base():
             gr.update(),
             "❌ Demo 加载失败",
             build_system_status_markdown(),
-            success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试")
         )
     if not os.path.exists(DEMO_CHUNKS_PATH):
         message = f"未找到 Demo 数据文件：{DEMO_CHUNKS_PATH}"
@@ -289,8 +281,7 @@ def load_demo_knowledge_base():
             gr.update(),
             "❌ Demo 加载失败",
             build_system_status_markdown(),
-            success_error_payload("DEMO_FILE_MISSING", message, "确认仓库内 demo_chunks.json 是否存在"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("DEMO_FILE_MISSING", message, "确认仓库内 demo_chunks.json 是否存在")
         )
     try:
         start = time.time()
@@ -325,7 +316,7 @@ def load_demo_knowledge_base():
             f"[{ts()}] 📌 索引摘要：{summary}",
         ]
         log_event(f"Demo 加载完成：{summary}")
-        return "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "✅ Demo 索引就绪", build_system_status_markdown(), "{}", gr.update(selected=TAB_CHAT)
+        return "\n".join(logs), gr.update(choices=dropdown_choices, value=dropdown_choices[0]), "✅ Demo 索引就绪", build_system_status_markdown(), "{}"
     except Exception as e:
         SYSTEM_STATE["index_ready"] = False
         SYSTEM_STATE["index_summary"] = f"Demo 加载失败: {e}"
@@ -335,8 +326,7 @@ def load_demo_knowledge_base():
             gr.update(),
             "❌ Demo 加载失败",
             build_system_status_markdown(),
-            success_error_payload("DEMO_LOAD_FAILED", str(e), "请检查 demo_chunks.json 格式"),
-            gr.update(selected=TAB_KB),
+            success_error_payload("DEMO_LOAD_FAILED", str(e), "请检查 demo_chunks.json 格式")
         )
 def find_latest_dashboard_csv() -> Optional[str]:
     candidates = []
@@ -411,94 +401,98 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
         """
 <div style="text-align:center; margin: 8px 0 14px 0;">
   <h1>🚀 企业级 RAG 智能问答控制台</h1>
-  <p>双路检索（A/B） · 文档隔离防串库 · 按需冷启动 · 自动评测大盘</p>
+  <p>单页模式：问答 + 建库 + 评测大盘，一屏演示全流程</p>
 </div>
 """
     )
     system_status_bar = gr.Markdown(value=build_system_status_markdown())
-    with gr.Tabs(selected=TAB_KB) as main_tabs:
-        with gr.Tab("💬 智能交互中心", id=TAB_CHAT):
-            with gr.Row():
-                with gr.Column(scale=1, min_width=320):
-                    gr.Markdown("### ⚙️ 检索控制台")
-                    doc_selector = gr.Dropdown(
-                        choices=["🌍 全局检索 (混合所有文档)"],
-                        value="🌍 全局检索 (混合所有文档)",
-                        label="🎯 检索范围（支持单文档隔离）",
-                        interactive=True,
-                    )
-                    strategy_radio = gr.Radio(
-                        choices=["Method A (传统固定切分)", "Method B (物理 BBox 降噪)"],
-                        value="Method B (物理 BBox 降噪)",
-                        label="检索策略",
-                    )
-                    top_k_slider = gr.Slider(1, 10, value=5, step=1, label="Top-K 召回数量")
-                    clear_btn = gr.Button("🧹 清空会话与溯源", variant="secondary")
-                    qa_index_status = gr.Markdown("⚠️ 索引未就绪")
-                with gr.Column(scale=3):
-                    chatbot = gr.Chatbot(height=480, label="RAG 专家助手")
-                    msg_input = gr.Textbox(
-                        placeholder="请输入您关于文献的问题，按 Enter 发送...",
-                        label="知识库提问",
-                    )
-                    with gr.Accordion("🔍 检索证据（RRF Top Chunks）", open=False):
-                        source_display = gr.Textbox(lines=10, interactive=False, label="Evidence Chains")
-                    with gr.Accordion("🧯 错误详情（JSON）", open=False):
-                        chat_error_json = gr.Code(language="json", label="Chat Error Payload", value="{}")
-            msg_input.submit(
-                chat_with_rag,
-                inputs=[msg_input, chatbot, strategy_radio, top_k_slider, doc_selector],
-                outputs=[msg_input, chatbot, source_display, chat_error_json, system_status_bar],
+
+    gr.Markdown("### 📚 知识库注入")
+    gr.Markdown("上传 PDF 后，系统将依次构建 Method A / Method B 双路索引。")
+    with gr.Row():
+        with gr.Column(scale=2):
+            file_upload = gr.File(label="上传 PDF 文献集合", file_count="multiple", file_types=[".pdf"])
+            chunk_size_num = gr.Number(value=400, label="Target Chunk Size (字符)")
+            build_index_btn = gr.Button("🔨 解析并构建向量/BM25混合索引", variant="primary")
+            load_demo_btn = gr.Button("⚡ 先看看效果（加载 Demo 数据）", variant="secondary")
+            qa_hint = gr.Markdown("建库完成后可直接在下方【智能交互】提问。")
+        with gr.Column(scale=3):
+            index_log = gr.Textbox(lines=14, label="实时构建日志", interactive=False)
+            with gr.Accordion("🧯 建库错误详情（JSON）", open=False):
+                build_error_json = gr.Code(language="json", label="Build Error Payload", value="{}")
+
+    gr.Markdown("### 💬 智能交互")
+    with gr.Row():
+        with gr.Column(scale=1, min_width=320):
+            gr.Markdown("### ⚙️ 检索控制台")
+            doc_selector = gr.Dropdown(
+                choices=["🌍 全局检索 (混合所有文档)"],
+                value="🌍 全局检索 (混合所有文档)",
+                label="🎯 检索范围（支持单文档隔离）",
+                interactive=True,
             )
-            clear_btn.click(
-                lambda: ("", [], "", "{}"),
-                inputs=None,
-                outputs=[msg_input, chatbot, source_display, chat_error_json],
+            strategy_radio = gr.Radio(
+                choices=["Method A (传统固定切分)", "Method B (物理 BBox 降噪)"],
+                value="Method B (物理 BBox 降噪)",
+                label="检索策略",
             )
-        with gr.Tab("📚 私有知识库注入", id=TAB_KB):
-            gr.Markdown("上传 PDF 后，系统将依次构建 Method A / Method B 双路索引。")
-            gr.Markdown("若首次冷启动不想等待全量建库，可先点击 **先看看效果（加载 Demo 数据）** 立即体验。")
-            with gr.Row():
-                with gr.Column(scale=2):
-                    file_upload = gr.File(label="上传 PDF 文献集合", file_count="multiple", file_types=[".pdf"])
-                    chunk_size_num = gr.Number(value=400, label="Target Chunk Size (字符)")
-                    build_index_btn = gr.Button("🔨 解析并构建向量/BM25混合索引", variant="primary")
-                    load_demo_btn = gr.Button("⚡ 先看看效果（加载 Demo 数据）", variant="secondary")
-                    qa_hint = gr.Markdown("建库完成后，请切换到【智能交互中心】进行问答测试。")
-                with gr.Column(scale=3):
-                    index_log = gr.Textbox(lines=14, label="实时构建日志", interactive=False)
-                    with gr.Accordion("🧯 建库错误详情（JSON）", open=False):
-                        build_error_json = gr.Code(language="json", label="Build Error Payload", value="{}")
-            build_index_btn.click(
-                build_knowledge_base,
-                inputs=[file_upload, chunk_size_num],
-                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json, main_tabs],
+            top_k_slider = gr.Slider(1, 10, value=5, step=1, label="Top-K 召回数量")
+            clear_btn = gr.Button("🧹 清空会话与溯源", variant="secondary")
+            qa_index_status = gr.Markdown("⚠️ 索引未就绪")
+
+        with gr.Column(scale=3):
+            chatbot = gr.Chatbot(height=420, label="RAG 专家助手")
+            msg_input = gr.Textbox(
+                placeholder="请输入您关于文献的问题，按 Enter 发送...",
+                label="知识库提问",
             )
-            load_demo_btn.click(
-                load_demo_knowledge_base,
-                inputs=None,
-                outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json, main_tabs],
-            )
-        with gr.Tab("📊 自动化评测监控大盘", id=TAB_DASHBOARD):
-            gr.Markdown("系统将自动读取 `record/` 或 `记录/` 目录下最新 CSV。")
-            with gr.Row():
-                refresh_btn = gr.Button("🔄 刷新最新大盘数据", variant="primary")
-                dashboard_status = gr.Textbox(label="大盘刷新状态", interactive=False)
-            results_df = gr.Dataframe(label="企业级 RAG 核心指标多维对比看板", interactive=False)
-            with gr.Accordion("🧯 大盘错误详情（JSON）", open=False):
-                dashboard_error_json = gr.Code(language="json", label="Dashboard Error Payload", value="{}")
-            refresh_btn.click(
-                load_dashboard_data,
-                inputs=None,
-                outputs=[results_df, dashboard_status, system_status_bar, dashboard_error_json],
-                queue=False,
-            )
-            demo.load(
-                load_dashboard_data,
-                inputs=None,
-                outputs=[results_df, dashboard_status, system_status_bar, dashboard_error_json],
-                queue=False,
-            )
+            with gr.Accordion("🔍 检索证据（RRF Top Chunks）", open=False):
+                source_display = gr.Textbox(lines=10, interactive=False, label="Evidence Chains")
+            with gr.Accordion("🧯 问答错误详情（JSON）", open=False):
+                chat_error_json = gr.Code(language="json", label="Chat Error Payload", value="{}")
+
+    gr.Markdown("### 📊 自动化评测监控大盘")
+    gr.Markdown("系统将自动读取 `record/` 或 `记录/` 目录下最新 CSV。")
+    with gr.Row():
+        refresh_btn = gr.Button("🔄 刷新最新大盘数据", variant="primary")
+        dashboard_status = gr.Textbox(label="大盘刷新状态", interactive=False)
+    results_df = gr.Dataframe(label="企业级 RAG 核心指标多维对比看板", interactive=False)
+    with gr.Accordion("🧯 大盘错误详情（JSON）", open=False):
+        dashboard_error_json = gr.Code(language="json", label="Dashboard Error Payload", value="{}")
+
+    build_index_btn.click(
+        build_knowledge_base,
+        inputs=[file_upload, chunk_size_num],
+        outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
+    )
+    load_demo_btn.click(
+        load_demo_knowledge_base,
+        inputs=None,
+        outputs=[index_log, doc_selector, qa_index_status, system_status_bar, build_error_json],
+    )
+    msg_input.submit(
+        chat_with_rag,
+        inputs=[msg_input, chatbot, strategy_radio, top_k_slider, doc_selector],
+        outputs=[msg_input, chatbot, source_display, chat_error_json, system_status_bar],
+    )
+    clear_btn.click(
+        lambda: ("", [], "", "{}"),
+        inputs=None,
+        outputs=[msg_input, chatbot, source_display, chat_error_json],
+    )
+    refresh_btn.click(
+        load_dashboard_data,
+        inputs=None,
+        outputs=[results_df, dashboard_status, system_status_bar, dashboard_error_json],
+        queue=False,
+    )
+    demo.load(
+        load_dashboard_data,
+        inputs=None,
+        outputs=[results_df, dashboard_status, system_status_bar, dashboard_error_json],
+        queue=False,
+    )
+
 if __name__ == "__main__":
     demo.queue(default_concurrency_limit=4).launch(
         server_name="0.0.0.0",
