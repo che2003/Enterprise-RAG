@@ -47,14 +47,6 @@ def log_event(message: str) -> None:
     print(f"[{ts()}] {message}")
 
 
-def ts() -> str:
-    return time.strftime("%H:%M:%S")
-
-
-def log_event(message: str) -> None:
-    print(f"[{ts()}] {message}")
-
-
 def build_system_status_markdown() -> str:
     embedding_flag = "✅" if SYSTEM_STATE["embedding_ready"] else "❌"
     model_flag = "✅" if SYSTEM_STATE["model_ready"] else "❌"
@@ -237,7 +229,7 @@ def build_knowledge_base(file_objs, chunk_size):
             gr.update(),
             "❌ 索引构建失败",
             build_system_status_markdown(),
-            success_error_payload("ENGINE_INIT_FAILED", init_error, "检查环境后重试"),
+            success_error_payload("ENGINE_INIT_FAILED", init_error, "优先使用本地 embedding 模型（RAG_EMBED_MODEL_PATH）后重试"),
             gr.update(selected=TAB_KB),
         )
         return
