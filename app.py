@@ -441,7 +441,7 @@ with gr.Blocks(title="企业级 RAG 评测系统") as demo:
             qa_index_status = gr.Markdown("⚠️ 索引未就绪")
 
         with gr.Column(scale=3):
-            chatbot = gr.Chatbot(height=420, label="RAG 专家助手")
+            chatbot = gr.Chatbot(height=420, label="RAG 专家助手", type="tuples")
             msg_input = gr.Textbox(
                 placeholder="请输入您关于文献的问题，按 Enter 发送...",
                 label="知识库提问",
