@@ -30,12 +30,14 @@ SYSTEM_STATE: Dict[str, object] = {
     "dashboard_summary": "尚未读取评测 CSV",
 }
 DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
-CHATBOT_SUPPORTS_MESSAGES = "type" in inspect.signature(gr.Chatbot.__init__).parameters
+CHATBOT_INIT_SIGNATURE = inspect.signature(gr.Chatbot.__init__)
+CHATBOT_SUPPORTS_TYPE_ARG = "type" in CHATBOT_INIT_SIGNATURE.parameters
+CHATBOT_USES_MESSAGES = CHATBOT_SUPPORTS_TYPE_ARG or "MessageDict" in str(CHATBOT_INIT_SIGNATURE.parameters.get("value", ""))
 
 
 def _normalize_history(history):
     normalized = history or []
-    if CHATBOT_SUPPORTS_MESSAGES:
+    if CHATBOT_USES_MESSAGES:
         message_history = []
         for item in normalized:
             if isinstance(item, dict) and {"role", "content"} <= set(item.keys()):
@@ -59,7 +61,7 @@ def _normalize_history(history):
 
 def _append_chat_history(history, user_message: str, answer: str):
     history = _normalize_history(history)
-    if CHATBOT_SUPPORTS_MESSAGES:
+    if CHATBOT_USES_MESSAGES:
         history.extend(
             [
                 {"role": "user", "content": user_message},
@@ -73,7 +75,7 @@ def _append_chat_history(history, user_message: str, answer: str):
 
 def create_chatbot():
     chatbot_kwargs = {"height": 420, "label": "RAG 专家助手"}
-    if CHATBOT_SUPPORTS_MESSAGES:
+    if CHATBOT_SUPPORTS_TYPE_ARG:
         chatbot_kwargs["type"] = "messages"
     return gr.Chatbot(**chatbot_kwargs)
 
