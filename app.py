@@ -9,6 +9,7 @@ import pandas as pd
 from src.data_pipeline import DataPipeline
 from src.hybrid_retriever import HybridRetriever
 from src.llm_evaluator import RAGEvaluator
+
 print("==================================================")
 print("🚀 正在启动企业级 RAG WebUI 服务，请稍候...")
 print("==================================================")
@@ -139,7 +140,7 @@ def ensure_evaluator_engine() -> Tuple[bool, str]:
     SYSTEM_STATE["engine_status"] = "LLM 引擎冷启动中..."
     log_event("开始冷启动 LLM 引擎。")
     try:
-        generator_id = os.getenv("RAG_GENERATOR_ID", "Qwen/Qwen3.5-2B")
+        generator_id = os.getenv("RAG_GENERATOR_ID", r"D:\models\Qwen3.5-2B")
         judge_id = os.getenv("RAG_JUDGE_ID", r"D:\models\Qwen3.5-9B")
         local_files_only = os.getenv("RAG_LOCAL_FILES_ONLY", "1") == "1"
         log_event(

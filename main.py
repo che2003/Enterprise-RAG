@@ -86,7 +86,7 @@ def main():
 
     # 唤醒异构引擎
     evaluator = RAGEvaluator(
-        generator_id=f"Qwen/{PARAM_GEN_MODEL}",
+        generator_id=rf"D:\models\{PARAM_GEN_MODEL}",
         judge_id=rf"D:\models\{PARAM_JUDGE_MODEL}"
     )
     num_q = len(eval_qas)
