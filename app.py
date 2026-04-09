@@ -29,7 +29,39 @@ SYSTEM_STATE: Dict[str, object] = {
     "dashboard_summary": "尚未读取评测 CSV",
 }
 DEMO_CHUNKS_PATH = os.path.join("data", "demo_chunks.json")
-CHATBOT_SUPPORTS_MESSAGES = "type" in inspect.signature(gr.Chatbot.__init__).parameters
+CHATBOT_SUPPORTS_TYPE_ARG = "type" in inspect.signature(gr.Chatbot.__init__).parameters
+CHATBOT_EXPECTS_MESSAGES = True
+try:
+    _chatbot_probe = gr.Chatbot()
+    _chatbot_probe_type = getattr(_chatbot_probe, "type", None)
+    if _chatbot_probe_type in {"messages", "tuples"}:
+        CHATBOT_EXPECTS_MESSAGES = _chatbot_probe_type == "messages"
+except Exception:
+    CHATBOT_EXPECTS_MESSAGES = True
+
+
+def _normalize_history(history):
+    normalized = history or []
+    if CHATBOT_EXPECTS_MESSAGES:
+        message_history = []
+        for item in normalized:
+            if isinstance(item, dict) and {"role", "content"} <= set(item.keys()):
+                message_history.append(item)
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
+                user_msg, assistant_msg = item
+                message_history.append({"role": "user", "content": str(user_msg)})
+                message_history.append({"role": "assistant", "content": str(assistant_msg)})
+        return message_history
+    tuple_history = []
+    for item in normalized:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            tuple_history.append((str(item[0]), str(item[1])))
+        elif isinstance(item, dict) and item.get("role") == "user":
+            tuple_history.append((str(item.get("content", "")), ""))
+        elif isinstance(item, dict) and item.get("role") == "assistant" and tuple_history:
+            user_msg, _ = tuple_history[-1]
+            tuple_history[-1] = (user_msg, str(item.get("content", "")))
+    return tuple_history
 
 
 def _normalize_history(history):
@@ -58,7 +90,7 @@ def _normalize_history(history):
 
 def _append_chat_history(history, user_message: str, answer: str):
     history = _normalize_history(history)
-    if CHATBOT_SUPPORTS_MESSAGES:
+    if CHATBOT_EXPECTS_MESSAGES:
         history.extend(
             [
                 {"role": "user", "content": user_message},
@@ -72,8 +104,8 @@ def _append_chat_history(history, user_message: str, answer: str):
 
 def create_chatbot():
     chatbot_kwargs = {"height": 420, "label": "RAG 专家助手"}
-    if CHATBOT_SUPPORTS_MESSAGES:
-        chatbot_kwargs["type"] = "messages"
+    if CHATBOT_SUPPORTS_TYPE_ARG:
+        chatbot_kwargs["type"] = "messages" if CHATBOT_EXPECTS_MESSAGES else "tuples"
     return gr.Chatbot(**chatbot_kwargs)
 
 
