@@ -64,6 +64,30 @@ def _normalize_history(history):
     return tuple_history
 
 
+def _normalize_history(history):
+    normalized = history or []
+    if CHATBOT_SUPPORTS_MESSAGES:
+        message_history = []
+        for item in normalized:
+            if isinstance(item, dict) and {"role", "content"} <= set(item.keys()):
+                message_history.append(item)
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
+                user_msg, assistant_msg = item
+                message_history.append({"role": "user", "content": str(user_msg)})
+                message_history.append({"role": "assistant", "content": str(assistant_msg)})
+        return message_history
+    tuple_history = []
+    for item in normalized:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            tuple_history.append((str(item[0]), str(item[1])))
+        elif isinstance(item, dict) and item.get("role") == "user":
+            tuple_history.append((str(item.get("content", "")), ""))
+        elif isinstance(item, dict) and item.get("role") == "assistant" and tuple_history:
+            user_msg, _ = tuple_history[-1]
+            tuple_history[-1] = (user_msg, str(item.get("content", "")))
+    return tuple_history
+
+
 def _append_chat_history(history, user_message: str, answer: str):
     history = _normalize_history(history)
     if CHATBOT_EXPECTS_MESSAGES:
