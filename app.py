@@ -404,6 +404,31 @@ def load_dashboard_data():
         msg = f"✅ 已读取: {latest_csv} | 记录数: {len(df)} | 缺失列: {', '.join(missing_cols) if missing_cols else '无'}"
         SYSTEM_STATE["dashboard_summary"] = msg.replace("✅ ", "")
         log_event(f"仪表盘加载成功：{msg}")
+        if missing_cols:
+            err_payload = success_error_payload(
+                "DASHBOARD_MISSING_COLUMNS",
+                f"缺失列: {', '.join(missing_cols)}",
+                "请补齐评测输出列后重试",
+            )
+            return (
+                pd.DataFrame({"错误": [f"CSV 缺失必要列: {', '.join(missing_cols)}"]}),
+                f"❌ CSV 缺失必要列：{', '.join(missing_cols)}",
+                build_system_status_markdown(),
+                err_payload,
+            )
+
+        def _fmt_mean(series: pd.Series, scale: float = 1.0, suffix: str = "", precision: int = 2) -> str:
+            value = series.mean()
+            if pd.isna(value):
+                return "N/A"
+            return f"{value * scale:.{precision}f}{suffix}"
+
+        def _fmt_refusal_rate(mask: pd.Series, total: int) -> str:
+            if total <= 0:
+                return "N/A"
+            return f"{(1 - mask.sum() / total) * 100:.1f}%"
+
+        total_rows = len(df)
         mask_A = ~((df["A_Faith"] == 10) & (df["A_Rel"] == 0))
         mask_B = ~((df["B_Faith"] == 10) & (df["B_Rel"] == 0))
         metrics_df = pd.DataFrame(
@@ -417,20 +442,20 @@ def load_dashboard_data():
                     "6. 专家对齐度 (ROUGE-L)",
                 ],
                 "Method A (固定切分)": [
-                    f"{df['A_Hit'].mean() * 100:.1f}%",
-                    f"{df['A_MRR'].mean():.3f}",
-                    f"{df.loc[mask_A, 'A_Faith'].mean():.2f}",
-                    f"{(1 - mask_A.sum() / len(df)) * 100:.1f}%",
-                    f"{df['A_Rel'].mean():.2f}",
-                    f"{df['A_ROUGE_L'].mean():.4f}",
+                    _fmt_mean(df["A_Hit"], scale=100, suffix="%", precision=1),
+                    _fmt_mean(df["A_MRR"], precision=3),
+                    _fmt_mean(df.loc[mask_A, "A_Faith"], precision=2),
+                    _fmt_refusal_rate(mask_A, total_rows),
+                    _fmt_mean(df["A_Rel"], precision=2),
+                    _fmt_mean(df["A_ROUGE_L"], precision=4),
                 ],
                 "Method B (BBox 降噪)": [
-                    f"{df['B_Hit'].mean() * 100:.1f}%",
-                    f"{df['B_MRR'].mean():.3f}",
-                    f"{df.loc[mask_B, 'B_Faith'].mean():.2f}",
-                    f"{(1 - mask_B.sum() / len(df)) * 100:.1f}%",
-                    f"{df['B_Rel'].mean():.2f}",
-                    f"{df['B_ROUGE_L'].mean():.4f}",
+                    _fmt_mean(df["B_Hit"], scale=100, suffix="%", precision=1),
+                    _fmt_mean(df["B_MRR"], precision=3),
+                    _fmt_mean(df.loc[mask_B, "B_Faith"], precision=2),
+                    _fmt_refusal_rate(mask_B, total_rows),
+                    _fmt_mean(df["B_Rel"], precision=2),
+                    _fmt_mean(df["B_ROUGE_L"], precision=4),
                 ],
             }
         )
