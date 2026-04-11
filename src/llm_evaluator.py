@@ -1,6 +1,7 @@
+import re
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import re
 
 
 class RAGEvaluator:
@@ -13,7 +14,7 @@ class RAGEvaluator:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.float16 if self.device == "cuda" else torch.float32
 
-        print(f"🚀 [LLM] 正在加载选手模型 (Generator): {generator_id} ...")
+        print(f"[LLM] 加载生成模型: {generator_id}")
         self.gen_tokenizer = AutoTokenizer.from_pretrained(generator_id, local_files_only=local_files_only)
         self.gen_model = AutoModelForCausalLM.from_pretrained(
             generator_id,
@@ -22,7 +23,7 @@ class RAGEvaluator:
             local_files_only=local_files_only,
         )
 
-        print(f"⚖️ [LLM] 正在加载裁判模型 (Judge): {judge_id} ...")
+        print(f"[LLM] 加载评估模型: {judge_id}")
         self.judge_tokenizer = AutoTokenizer.from_pretrained(judge_id, local_files_only=local_files_only)
         self.judge_model = AutoModelForCausalLM.from_pretrained(
             judge_id,
@@ -30,10 +31,9 @@ class RAGEvaluator:
             device_map="auto" if self.device == "cuda" else None,
             local_files_only=local_files_only,
         )
-        print("✅ [LLM] 双引擎异构大模型就绪，准备降维打击！")
+        print("[LLM] 模型加载完成")
 
     def generate_answer(self, query, context):
-        """由 2B 小模型负责生成答案 (智能拒答边界 + 部分提取策略)"""
         messages = [
             {"role": "system", "content": (
                 "You are an exact extraction bot. You will be provided with retrieved text chunks.\n"
@@ -51,30 +51,26 @@ class RAGEvaluator:
                 "Answer: I cannot answer\n"
                 "================"
             )},
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
         ]
 
         text = self.gen_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         model_inputs = self.gen_tokenizer([text], return_tensors="pt").to(self.device)
 
-        # 保持 150 Token 限制，确保提取的实体不会被腰斩
         outputs = self.gen_model.generate(
-            model_inputs.input_ids, max_new_tokens=150, temperature=0.1, do_sample=True,
-            pad_token_id=self.gen_tokenizer.eos_token_id
+            model_inputs.input_ids,
+            max_new_tokens=150,
+            temperature=0.1,
+            do_sample=True,
+            pad_token_id=self.gen_tokenizer.eos_token_id,
         )
 
         generated_ids = [output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, outputs)]
         return self.gen_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
 
     def evaluate_as_judge(self, query, context, generated_answer, ground_truth):
-        """由 9B 大模型结合 Ground Truth 进行开卷裁判 (硬规则拦截 + 绝对确定性生成)"""
-
-        # =====================================================================
-        # 💡 硬规则拦截：检测到诚实拒答，直接判定为无幻觉，赋予 F:10, R:0
-        # =====================================================================
         ans_lower = generated_answer.lower()
         if "cannot answer" in ans_lower or "不知道" in ans_lower or ans_lower.strip() == "":
-            print("\n[Judge Bypass]: 🚨 模型诚实地拒答了！判定为无幻觉，赋分 F:10, R:0")
             return {"Faithfulness": 0, "Relevance": 0}
 
         messages = [
@@ -91,39 +87,36 @@ class RAGEvaluator:
                 "F_SCORE: [number]\n"
                 "R_SCORE: [number]"
             )},
-            {"role": "user",
-             "content": f"Context: {context}\nQuestion: {query}\nGround Truth: {ground_truth}\nAI Answer: {generated_answer}"}
+            {"role": "user", "content": (
+                f"Context: {context}\nQuestion: {query}\n"
+                f"Ground Truth: {ground_truth}\nAI Answer: {generated_answer}"
+            )},
         ]
 
         text = self.judge_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        text += "F_SCORE:"  # 物理截流外挂，强迫直接输出数字
+        text += "F_SCORE:"
 
         model_inputs = self.judge_tokenizer([text], return_tensors="pt").to(self.device)
-
-        # 关闭采样，确保打分绝对稳定
         outputs = self.judge_model.generate(
             model_inputs.input_ids,
             max_new_tokens=20,
             do_sample=False,
             temperature=None,
-            pad_token_id=self.judge_tokenizer.eos_token_id
+            pad_token_id=self.judge_tokenizer.eos_token_id,
         )
 
         generated_ids = [output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, outputs)]
         judgment = self.judge_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
-
         full_judgment = "F_SCORE:" + judgment
-        print(f"\n[Judge Output]: {full_judgment.replace(chr(10), ' | ')}")
 
-        import re
-        f_match = re.search(r'F_SCORE:\s*(\d+)', full_judgment, re.IGNORECASE)
-        r_match = re.search(r'R_SCORE:\s*(\d+)', full_judgment, re.IGNORECASE)
+        f_match = re.search(r"F_SCORE:\s*(\d+)", full_judgment, re.IGNORECASE)
+        r_match = re.search(r"R_SCORE:\s*(\d+)", full_judgment, re.IGNORECASE)
 
         if f_match and r_match:
             f_score = int(f_match.group(1))
             r_score = int(r_match.group(1))
         else:
-            scores = re.findall(r'\d+', full_judgment)
+            scores = re.findall(r"\d+", full_judgment)
             if len(scores) >= 2:
                 f_score, r_score = int(scores[0]), int(scores[1])
             elif len(scores) == 1:
@@ -133,32 +126,32 @@ class RAGEvaluator:
 
         f_score = min(max(f_score, 0), 10)
         r_score = min(max(r_score, 0), 10)
-
         return {"Faithfulness": f_score, "Relevance": r_score}
 
     def compute_rouge_l(self, generated, ground_truth):
-        def lcs(X, Y):
-            m, n = len(X), len(Y)
-            L = [[0] * (n + 1) for _ in range(m + 1)]
+        def lcs(x, y):
+            m, n = len(x), len(y)
+            table = [[0] * (n + 1) for _ in range(m + 1)]
             for i in range(m + 1):
                 for j in range(n + 1):
                     if i == 0 or j == 0:
-                        L[i][j] = 0
-                    elif X[i - 1] == Y[j - 1]:
-                        L[i][j] = L[i - 1][j - 1] + 1
+                        table[i][j] = 0
+                    elif x[i - 1] == y[j - 1]:
+                        table[i][j] = table[i - 1][j - 1] + 1
                     else:
-                        L[i][j] = max(L[i - 1][j], L[i][j - 1])
-            return L[m][n]
+                        table[i][j] = max(table[i - 1][j], table[i][j - 1])
+            return table[m][n]
 
-        gen_tokens = re.findall(r'\w+', generated.lower())
-        gt_tokens = re.findall(r'\w+', ground_truth.lower())
-
-        if not gen_tokens or not gt_tokens: return 0.0
+        gen_tokens = re.findall(r"\w+", generated.lower())
+        gt_tokens = re.findall(r"\w+", ground_truth.lower())
+        if not gen_tokens or not gt_tokens:
+            return 0.0
 
         lcs_len = lcs(gen_tokens, gt_tokens)
         precision = lcs_len / len(gen_tokens)
         recall = lcs_len / len(gt_tokens)
+        if precision + recall == 0:
+            return 0.0
 
-        if precision + recall == 0: return 0.0
         f1_score = (2 * precision * recall) / (precision + recall)
         return round(f1_score, 4)

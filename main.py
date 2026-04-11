@@ -1,25 +1,30 @@
-import os
-import csv
-import string
-import datetime
 import argparse
+import csv
+import datetime
+import os
+import string
+
+from generate_report import generate_summary_from_csv
 from src.data_pipeline import DataPipeline
 from src.hybrid_retriever import HybridRetriever
 from src.llm_evaluator import RAGEvaluator
-from generate_report import generate_summary_from_csv
 
 
 def evaluate_retrieval_metrics(retrieved_chunks_list, query):
-    stop_words = {"what", "is", "the", "in", "of", "to", "a", "an", "and", "for", "are", "do", "they", "with", "how",
-                  "did", "use", "on", "from"}
-    query_terms = [w.strip(string.punctuation).lower() for w in query.split() if
-                   w.lower() not in stop_words and len(w) > 2]
+    stop_words = {
+        "what", "is", "the", "in", "of", "to", "a", "an", "and", "for", "are",
+        "do", "they", "with", "how", "did", "use", "on", "from",
+    }
+    query_terms = [
+        w.strip(string.punctuation).lower()
+        for w in query.split()
+        if w.lower() not in stop_words and len(w) > 2
+    ]
 
     if not query_terms:
         return 1.0, 1.0, 1.0
 
     threshold = 1 if len(query_terms) <= 2 else 2
-
     relevance_array = []
     for chunk in retrieved_chunks_list:
         chunk_lower = chunk.lower()
@@ -38,153 +43,145 @@ def evaluate_retrieval_metrics(retrieved_chunks_list, query):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DSAI5201 终极压测")
+    parser = argparse.ArgumentParser(description="Enterprise RAG 批量评测")
     parser.add_argument("--num_papers", type=int, default=10, help="拉取 QASper 论文数量")
     parser.add_argument("--chunk_size", type=int, default=400, help="切分块大小")
-    parser.add_argument("--gen_model", type=str, default="Qwen3.5-2B", help="选手模型")
-    parser.add_argument("--judge_model", type=str, default="Qwen3.5-9B", help="裁判模型")
+    parser.add_argument("--gen_model", type=str, default="Qwen3.5-2B", help="生成模型")
+    parser.add_argument("--judge_model", type=str, default="Qwen3.5-9B", help="评估模型")
     parser.add_argument(
         "--retrieval_mode",
         type=str,
         default="hybrid",
         choices=["hybrid", "dense", "sparse"],
-        help="检索策略消融",
+        help="检索模式",
     )
     args = parser.parse_args()
 
-    print(f"\n==================== 🚀 DSAI5201 终极压测 (异构裁判解耦 + 断点续跑) ====================")
+    print("\n==================== Enterprise RAG Evaluation ====================")
 
     record_dir = "record"
     os.makedirs(record_dir, exist_ok=True)
 
-    NUM_PAPERS = args.num_papers
-    PARAM_CHUNK_SIZE = args.chunk_size
-    PARAM_GEN_MODEL = args.gen_model
-    PARAM_JUDGE_MODEL = args.judge_model
-    RETRIEVAL_MODE = args.retrieval_mode
+    num_papers = args.num_papers
+    chunk_size = args.chunk_size
+    gen_model = args.gen_model
+    judge_model = args.judge_model
+    retrieval_mode = args.retrieval_mode
 
-    safe_gen_name = PARAM_GEN_MODEL.replace("/", "-")
-    csv_filename = f"eval_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}_mode-{RETRIEVAL_MODE}.csv"
+    safe_gen_name = gen_model.replace("/", "-")
+    csv_filename = f"eval_{safe_gen_name}_chunk{chunk_size}_mode-{retrieval_mode}.csv"
     csv_filepath = os.path.join(record_dir, csv_filename)
-    txt_filepath = os.path.join(
-        record_dir, f"details_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}_mode-{RETRIEVAL_MODE}.txt"
-    )
+    txt_filepath = os.path.join(record_dir, f"details_{safe_gen_name}_chunk{chunk_size}_mode-{retrieval_mode}.txt")
 
     processed_questions = set()
     if os.path.exists(csv_filepath):
-        with open(csv_filepath, 'r', encoding='utf-8') as f:
+        with open(csv_filepath, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            for row in reader: processed_questions.add(row['Question'])
-        print(f"🔄 检测到【同参数】历史测试记录！已成功恢复 {len(processed_questions)} 道已测题目...")
+            for row in reader:
+                processed_questions.add(row["Question"])
+        print(f"检测到历史评测记录，已恢复 {len(processed_questions)} 道题目。")
     else:
-        with open(csv_filepath, 'w', newline='', encoding='utf-8') as f:
+        with open(csv_filepath, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([
                 "Timestamp", "Parameters", "Q_ID", "Question", "Ground_Truth",
                 "A_Hit", "A_MRR", "A_CPrec", "A_Faith", "A_Rel", "A_ROUGE_L",
-                "B_Hit", "B_MRR", "B_CPrec", "B_Faith", "B_Rel", "B_ROUGE_L"
+                "B_Hit", "B_MRR", "B_CPrec", "B_Faith", "B_Rel", "B_ROUGE_L",
             ])
 
     pipeline = DataPipeline()
-    pdf_paths, eval_qas = pipeline.fetch_qasper_sample(num_papers=NUM_PAPERS)
-    if not pdf_paths: return
+    pdf_paths, eval_qas = pipeline.fetch_qasper_sample(num_papers=num_papers)
+    if not pdf_paths:
+        return
 
-    print(f"\n>> 构建 Method A (纯文本固定字数切分, Chunk Size: {PARAM_CHUNK_SIZE})...")
-    chunks_A = pipeline.naive_fixed_chunking(pdf_paths, chunk_size=PARAM_CHUNK_SIZE, overlap=50)
-    retriever_A = HybridRetriever()
-    retriever_A.build_index(chunks_A)
+    print(f"\n构建 Method A 索引（固定切分，chunk size={chunk_size}）...")
+    chunks_a = pipeline.naive_fixed_chunking(pdf_paths, chunk_size=chunk_size, overlap=50)
+    retriever_a = HybridRetriever()
+    retriever_a.build_index(chunks_a)
 
-    print(f">> 构建 Method B (物理 BBox + 柔性过滤 + 细粒度聚合, Chunk Size: {PARAM_CHUNK_SIZE})...")
-    chunks_B = pipeline.bbox_layout_chunking(pdf_paths, target_chunk_size=PARAM_CHUNK_SIZE)
-    retriever_B = HybridRetriever()
-    retriever_B.build_index(chunks_B)
+    print(f"构建 Method B 索引（BBox 切分，chunk size={chunk_size}）...")
+    chunks_b = pipeline.bbox_layout_chunking(pdf_paths, target_chunk_size=chunk_size)
+    retriever_b = HybridRetriever()
+    retriever_b.build_index(chunks_b)
 
-    # 唤醒异构引擎
-    evaluator = RAGEvaluator(
-        generator_id=rf"D:\models\{PARAM_GEN_MODEL}",
-        judge_id=rf"D:\models\{PARAM_JUDGE_MODEL}"
-    )
+    evaluator = RAGEvaluator(generator_id=rf"D:\models\{gen_model}", judge_id=rf"D:\models\{judge_model}")
     num_q = len(eval_qas)
 
-    print(f"\n==================== 开始异构自动化评测 (共 {num_q} 题) ====================")
+    print(f"\n开始评测，共 {num_q} 道题目。")
 
-    with open(csv_filepath, 'a', newline='', encoding='utf-8') as f_csv, open(txt_filepath, 'a',
-                                                                              encoding='utf-8') as f_txt:
+    with open(csv_filepath, "a", newline="", encoding="utf-8") as f_csv, open(txt_filepath, "a", encoding="utf-8") as f_txt:
         csv_writer = csv.writer(f_csv)
 
-        # 💡 解包时接收三个参数：新增 doc_name！
         for i, (query, ground_truth, doc_name) in enumerate(eval_qas):
-            if query in processed_questions: continue
+            if query in processed_questions:
+                continue
 
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            param_str = (
-                f"Chunk:{PARAM_CHUNK_SIZE}|Gen:{PARAM_GEN_MODEL}"
-                f"|Judge:{PARAM_JUDGE_MODEL}|Mode:{RETRIEVAL_MODE}"
-            )
+            param_str = f"Chunk:{chunk_size}|Gen:{gen_model}|Judge:{judge_model}|Mode:{retrieval_mode}"
 
-            # 打印日志带上论文名，方便溯源
-            print(f"\n❓ [Q {i + 1}/{num_q}] (Doc: {doc_name}): {query}")
-            f_txt.write(f"\n{'=' * 40}\n❓ [Q {i + 1}/{num_q}]: {query}\n[Ground Truth]: {ground_truth}\n{'=' * 40}\n")
+            print(f"\n[Q {i + 1}/{num_q}] (Doc: {doc_name}) {query}")
+            f_txt.write(f"\n{'=' * 40}\n[Q {i + 1}/{num_q}] {query}\n[Ground Truth]: {ground_truth}\n{'=' * 40}\n")
 
-            # ---------------- Method A ----------------
-            # 💡 传入 target_doc_name 触发硬拦截，彻底告别串库
-            context_A_str, chunks_A_list = retriever_A.hybrid_search_rrf(
+            context_a_str, chunks_a_list = retriever_a.hybrid_search_rrf(
                 query,
                 top_k=5,
                 target_doc_name=doc_name,
-                mode=RETRIEVAL_MODE,
+                mode=retrieval_mode,
             )
-            hit_A, mrr_A, cprec_A = evaluate_retrieval_metrics(chunks_A_list, query)
-            ans_A = evaluator.generate_answer(query, context_A_str)
-            score_A = evaluator.evaluate_as_judge(query, context_A_str, ans_A, ground_truth)
-            rouge_A = evaluator.compute_rouge_l(ans_A, ground_truth)
+            hit_a, mrr_a, cprec_a = evaluate_retrieval_metrics(chunks_a_list, query)
+            ans_a = evaluator.generate_answer(query, context_a_str)
+            score_a = evaluator.evaluate_as_judge(query, context_a_str, ans_a, ground_truth)
+            rouge_a = evaluator.compute_rouge_l(ans_a, ground_truth)
 
-            f_txt.write(f"\n🔴 [Method A]\n【生成答案】:\n{ans_A}\n")
-            f_txt.write(f"【底层 IR 指标】: Hit={hit_A} | MRR={mrr_A:.2f} | Context Prec={cprec_A:.2f}\n")
+            f_txt.write(f"\n[Method A]\n[Answer]:\n{ans_a}\n")
+            f_txt.write(f"[IR]: Hit={hit_a} | MRR={mrr_a:.2f} | CPrec={cprec_a:.2f}\n")
             f_txt.write(
-                f"【9B 裁判打分】: 忠实度={score_A['Faithfulness']} | 相关性={score_A['Relevance']} | ROUGE-L={rouge_A:.4f}\n")
+                f"[Judge]: Faithfulness={score_a['Faithfulness']} | Relevance={score_a['Relevance']} | ROUGE-L={rouge_a:.4f}\n"
+            )
 
-            # ---------------- Method B ----------------
-            # 💡 同样传入 target_doc_name 防串库
-            context_B_str, chunks_B_list = retriever_B.hybrid_search_rrf(
+            context_b_str, chunks_b_list = retriever_b.hybrid_search_rrf(
                 query,
                 top_k=5,
                 target_doc_name=doc_name,
-                mode=RETRIEVAL_MODE,
+                mode=retrieval_mode,
             )
-            hit_B, mrr_B, cprec_B = evaluate_retrieval_metrics(chunks_B_list, query)
-            ans_B = evaluator.generate_answer(query, context_B_str)
-            score_B = evaluator.evaluate_as_judge(query, context_B_str, ans_B, ground_truth)
-            rouge_B = evaluator.compute_rouge_l(ans_B, ground_truth)
+            hit_b, mrr_b, cprec_b = evaluate_retrieval_metrics(chunks_b_list, query)
+            ans_b = evaluator.generate_answer(query, context_b_str)
+            score_b = evaluator.evaluate_as_judge(query, context_b_str, ans_b, ground_truth)
+            rouge_b = evaluator.compute_rouge_l(ans_b, ground_truth)
 
-            f_txt.write(f"\n🟢 [Method B]\n【生成答案】:\n{ans_B}\n")
-            f_txt.write(f"【底层 IR 指标】: Hit={hit_B} | MRR={mrr_B:.2f} | Context Prec={cprec_B:.2f}\n")
+            f_txt.write(f"\n[Method B]\n[Answer]:\n{ans_b}\n")
+            f_txt.write(f"[IR]: Hit={hit_b} | MRR={mrr_b:.2f} | CPrec={cprec_b:.2f}\n")
             f_txt.write(
-                f"【9B 裁判打分】: 忠实度={score_B['Faithfulness']} | 相关性={score_B['Relevance']} | ROUGE-L={rouge_B:.4f}\n")
+                f"[Judge]: Faithfulness={score_b['Faithfulness']} | Relevance={score_b['Relevance']} | ROUGE-L={rouge_b:.4f}\n"
+            )
 
             print(
-                f"🔴 [A] MRR: {mrr_A:.2f} | 纯净度: {cprec_A:.2f} | 忠实: {score_A['Faithfulness']:>2} | 相关: {score_A['Relevance']:>2} | ROUGE: {rouge_A:.2f}")
+                f"A: MRR={mrr_a:.2f} | CPrec={cprec_a:.2f} | Faith={score_a['Faithfulness']:>2} | "
+                f"Rel={score_a['Relevance']:>2} | ROUGE={rouge_a:.2f}"
+            )
             print(
-                f"🟢 [B] MRR: {mrr_B:.2f} | 纯净度: {cprec_B:.2f} | 忠实: {score_B['Faithfulness']:>2} | 相关: {score_B['Relevance']:>2} | ROUGE: {rouge_B:.2f}")
+                f"B: MRR={mrr_b:.2f} | CPrec={cprec_b:.2f} | Faith={score_b['Faithfulness']:>2} | "
+                f"Rel={score_b['Relevance']:>2} | ROUGE={rouge_b:.2f}"
+            )
 
             csv_writer.writerow([
                 current_time, param_str, i + 1, query, ground_truth,
-                hit_A, mrr_A, cprec_A, score_A['Faithfulness'], score_A['Relevance'], rouge_A,
-                hit_B, mrr_B, cprec_B, score_B['Faithfulness'], score_B['Relevance'], rouge_B
+                hit_a, mrr_a, cprec_a, score_a["Faithfulness"], score_a["Relevance"], rouge_a,
+                hit_b, mrr_b, cprec_b, score_b["Faithfulness"], score_b["Relevance"], rouge_b,
             ])
             f_csv.flush()
             f_txt.flush()
             os.fsync(f_csv.fileno())
             os.fsync(f_txt.fileno())
-
             processed_questions.add(query)
 
-    print(f"\n🎉 双模型异构压测大满贯完成！详细对标数据已写入 {record_dir} 文件夹的 {csv_filename} 中。")
+    print(f"\n评测完成，结果写入 {csv_filepath}")
     try:
-        print("\n" + "=" * 20 + " 📊 自动拉取大盘分析报告 " + "=" * 20)
+        print("\n==================== 自动汇总报告 ====================")
         generate_summary_from_csv(csv_filepath)
     except Exception as e:
-        print(f"⚠️ 自动生成报告时出错，请检查逻辑或路径: {e}")
+        print(f"自动生成报告失败: {e}")
 
 
 if __name__ == "__main__":
