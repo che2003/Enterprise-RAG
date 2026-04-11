@@ -111,14 +111,7 @@ class DataPipeline:
                 doc = fitz.open(path)
                 current_chunk = ""
                 for page in doc:
-                    blocks = page.get_text("blocks")
-                    for b in blocks:
-                        x0, y0, x1, y1, text, block_no, block_type = b
-                        if block_type == 1: continue
-                        cleaned_text = text.strip()
-                        if len(cleaned_text) < 20: continue
-                        alpha_count = sum(c.isalpha() for c in cleaned_text)
-                        if len(cleaned_text) > 0 and (alpha_count / len(cleaned_text)) < 0.15: continue
+                    for _, _, _, _, _, _, _, cleaned_text in self._get_layout_sorted_blocks(page):
                         current_chunk += cleaned_text + " \n"
                         if len(current_chunk) >= target_chunk_size:
                             chunks.append(f"[Source: {doc_name}]\n{current_chunk.strip()}")
@@ -128,3 +121,47 @@ class DataPipeline:
             except Exception as e:
                 print(f"⚠️ 解析 {path} 时出错跳过: {e}")
         return chunks
+
+    def _get_layout_sorted_blocks(self, page, full_width_threshold=0.7):
+        """
+        视觉版面感知二维空间聚类：
+        1) 过滤低质量文本块
+        2) 按全宽 / 左栏 / 右栏分组
+        3) 组内按 Y 轴自上而下排序
+        4) 按 Full-width -> Left -> Right 的阅读顺序输出
+        """
+        page_width = page.rect.width
+        center_x = page_width / 2.0
+
+        blocks = [b for b in page.get_text("blocks") if b[6] == 0]
+
+        full_width_blocks = []
+        left_column = []
+        right_column = []
+
+        for b in blocks:
+            x0, y0, x1, y1, text, block_no, block_type = b
+
+            cleaned_text = text.replace("-\n", "").replace("\n", " ").strip()
+            if len(cleaned_text) < 20:
+                continue
+
+            alpha_count = sum(c.isalpha() for c in cleaned_text)
+            if len(cleaned_text) > 0 and (alpha_count / len(cleaned_text)) < 0.15:
+                continue
+
+            block_width = x1 - x0
+            block_center_x = (x0 + x1) / 2.0
+            processed_block = (x0, y0, x1, y1, text, block_no, block_type, cleaned_text)
+
+            if block_width > page_width * full_width_threshold:
+                full_width_blocks.append(processed_block)
+            elif block_center_x < center_x:
+                left_column.append(processed_block)
+            else:
+                right_column.append(processed_block)
+
+        for group in (full_width_blocks, left_column, right_column):
+            group.sort(key=lambda b: b[1])
+
+        return full_width_blocks + left_column + right_column
