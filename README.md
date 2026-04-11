@@ -136,8 +136,8 @@ python plot_paper_figures.py
 python plot_paper_figures.py \
   --record_dir record \
   --output_dir record/figures \
-  --line_chunk_sizes 200 400 600 800 \
-  --ablation_chunk_size 400
+  --figure3_chunk_sizes 200 400 600 800 \
+  --figure4_chunk_size 400
 ```
 
 ## 6. 输出结果解读
