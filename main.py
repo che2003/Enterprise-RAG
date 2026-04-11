@@ -46,7 +46,7 @@ def main():
     # 💡 核心超参数区
     # ==========================================
     NUM_PAPERS = 10  # 论文拉取数量
-    PARAM_CHUNK_SIZE = 300  # 文本切分大小
+    PARAM_CHUNK_SIZE = 400  # 文本切分大小
     PARAM_GEN_MODEL = "Qwen3.5-2B"  # 选手模型
     PARAM_JUDGE_MODEL = "Qwen3.5-9B"  # 裁判模型
 
