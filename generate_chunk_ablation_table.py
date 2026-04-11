@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 from typing import Iterable
 
@@ -15,6 +16,8 @@ METRICS = {
     "Rel": ("A_Rel", "B_Rel", False),
     "ROUGE-L": ("A_ROUGE_L", "B_ROUGE_L", False),
 }
+
+CHUNK_PATTERN = re.compile(r"chunk(\d+)", re.IGNORECASE)
 
 
 def format_metric(value: float, is_percentage: bool, metric_name: str) -> str:
@@ -34,10 +37,10 @@ def summarize_single_file(csv_path: Path, chunk_size: int) -> list[dict[str, str
             "Chunk Size": chunk_size,
             "Method": method_name,
             "Samples": len(df),
+            "Source File": str(csv_path),
         }
 
         for metric_name, (_, _, is_percentage) in METRICS.items():
-            col = f"{suffix}_{metric_name.replace('@5', '').replace('-', '_')}"
             if metric_name == "Hit@5":
                 col = f"{suffix}_Hit"
             elif metric_name == "MRR@5":
@@ -48,7 +51,7 @@ def summarize_single_file(csv_path: Path, chunk_size: int) -> list[dict[str, str
                 col = f"{suffix}_Faith"
             elif metric_name == "Rel":
                 col = f"{suffix}_Rel"
-            elif metric_name == "ROUGE-L":
+            else:
                 col = f"{suffix}_ROUGE_L"
 
             row[metric_name] = format_metric(df[col].mean(), is_percentage, metric_name)
@@ -58,24 +61,51 @@ def summarize_single_file(csv_path: Path, chunk_size: int) -> list[dict[str, str
     return rows
 
 
-def build_table(records_dir: Path, chunk_sizes: Iterable[int]) -> tuple[pd.DataFrame, list[int]]:
+def extract_chunk_size(path: Path) -> int | None:
+    match = CHUNK_PATTERN.search(path.stem)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def find_eval_files(records_dirs: Iterable[Path]) -> list[Path]:
+    found: list[Path] = []
+    for records_dir in records_dirs:
+        if not records_dir.exists():
+            continue
+        found.extend(records_dir.rglob("eval_*chunk*.csv"))
+    return sorted(set(found))
+
+
+def build_table(records_dirs: list[Path], chunk_sizes: Iterable[int]) -> tuple[pd.DataFrame, list[int], dict[int, Path]]:
+    target_sizes = set(chunk_sizes)
+    file_map: dict[int, Path] = {}
+
+    for csv_path in find_eval_files(records_dirs):
+        chunk_size = extract_chunk_size(csv_path)
+        if chunk_size is None or chunk_size not in target_sizes:
+            continue
+
+        # 同一个 chunk size 若匹配到多个文件，保留最新修改时间的文件
+        if chunk_size not in file_map or csv_path.stat().st_mtime > file_map[chunk_size].stat().st_mtime:
+            file_map[chunk_size] = csv_path
+
     all_rows: list[dict[str, str | int]] = []
     missing_chunks: list[int] = []
 
-    for chunk_size in chunk_sizes:
-        csv_path = records_dir / f"eval_Qwen3.5-2B_chunk{chunk_size}.csv"
-        if not csv_path.exists():
+    for chunk_size in sorted(target_sizes):
+        if chunk_size not in file_map:
             missing_chunks.append(chunk_size)
             continue
-
-        all_rows.extend(summarize_single_file(csv_path, chunk_size))
+        all_rows.extend(summarize_single_file(file_map[chunk_size], chunk_size))
 
     if not all_rows:
-        raise FileNotFoundError("没有找到任何已完成实验的 CSV 文件。")
+        search_text = ", ".join(str(p) for p in records_dirs)
+        raise FileNotFoundError(f"没有在这些目录找到可用 CSV: {search_text}")
 
     table_df = pd.DataFrame(all_rows)
     table_df.sort_values(by=["Chunk Size", "Method"], inplace=True)
-    return table_df, missing_chunks
+    return table_df, missing_chunks, file_map
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,10 +113,11 @@ def parse_args() -> argparse.Namespace:
         description="汇总 Chunk Size 消融实验（200/400/600/800）的大盘指标到表格。"
     )
     parser.add_argument(
-        "--records-dir",
+        "--records-dirs",
+        nargs="+",
         type=Path,
-        default=Path("记录"),
-        help="实验结果 CSV 所在目录（默认：记录）",
+        default=[Path("记录"), Path("record"), Path(".")],
+        help="要搜索 CSV 的目录列表（默认：记录 record 当前目录）",
     )
     parser.add_argument(
         "--chunk-sizes",
@@ -107,7 +138,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    table_df, missing_chunks = build_table(args.records_dir, args.chunk_sizes)
+    table_df, missing_chunks, file_map = build_table(args.records_dirs, args.chunk_sizes)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     table_df.to_csv(args.output, index=False)
@@ -115,6 +146,10 @@ def main() -> None:
     print("\n=== Chunk Size 消融汇总表（已完成实验）===")
     print(table_df.to_string(index=False))
     print(f"\n汇总 CSV 已保存到: {args.output}")
+
+    print("\n=== 已匹配到的输入文件 ===")
+    for chunk_size in sorted(file_map):
+        print(f"chunk {chunk_size}: {file_map[chunk_size]}")
 
     if missing_chunks:
         missing_text = ", ".join(str(c) for c in missing_chunks)
