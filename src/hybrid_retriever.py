@@ -71,7 +71,7 @@ class HybridRetriever:
         tokenized_corpus = [doc.lower().split(" ") for doc in self.texts]
         self.bm25_index = BM25Okapi(tokenized_corpus)
 
-    def hybrid_search_rrf(self, query, top_k=5, rrf_k=60, target_doc_name=None):
+    def hybrid_search_rrf(self, query, top_k=5, rrf_k=60, target_doc_name=None, mode="hybrid"):
         """
         核心突破：Reciprocal Rank Fusion (RRF) + 物理硬隔离
         将 FAISS 和 BM25 的召回名次进行倒数融合，彻底消除分数尺度的差异。
@@ -105,18 +105,23 @@ class HybridRetriever:
         bm25_rank_list = np.argsort(bm25_scores)[::-1].tolist()
         bm25_rank_list = [idx for idx in bm25_rank_list if idx in valid_indices][:candidate_size]
 
-        # --- 执行 RRF 分数计算 ---
-        rrf_scores = {}
+        if mode == "dense":
+            sorted_indices = faiss_rank_list[:top_k]
+        elif mode == "sparse":
+            sorted_indices = bm25_rank_list[:top_k]
+        else:
+            # --- 执行 RRF 分数计算 ---
+            rrf_scores = {}
 
-        for rank, doc_idx in enumerate(faiss_rank_list):
-            rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + 1.0 / (rrf_k + rank + 1)
+            for rank, doc_idx in enumerate(faiss_rank_list):
+                rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + 1.0 / (rrf_k + rank + 1)
 
-        for rank, doc_idx in enumerate(bm25_rank_list):
-            rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + 1.0 / (rrf_k + rank + 1)
+            for rank, doc_idx in enumerate(bm25_rank_list):
+                rrf_scores[doc_idx] = rrf_scores.get(doc_idx, 0.0) + 1.0 / (rrf_k + rank + 1)
 
-        # --- 按 RRF 得分排序，截取最终的 Top-K ---
-        sorted_indices = sorted(rrf_scores, key=rrf_scores.get, reverse=True)[:top_k]
+            # --- 按 RRF 得分排序，截取最终的 Top-K ---
+            sorted_indices = sorted(rrf_scores, key=rrf_scores.get, reverse=True)[:top_k]
 
         # 组装返回的 Context
         fused_contexts = [self.texts[i] for i in sorted_indices]
-        return "\n\n=== RRF Top Chunk ===\n\n".join(fused_contexts), fused_contexts
+        return "\n\n=== Retrieved Top Chunk ===\n\n".join(fused_contexts), fused_contexts

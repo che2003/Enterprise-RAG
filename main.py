@@ -2,6 +2,7 @@ import os
 import csv
 import string
 import datetime
+import argparse
 from src.data_pipeline import DataPipeline
 from src.hybrid_retriever import HybridRetriever
 from src.llm_evaluator import RAGEvaluator
@@ -37,23 +38,37 @@ def evaluate_retrieval_metrics(retrieved_chunks_list, query):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="DSAI5201 终极压测")
+    parser.add_argument("--num_papers", type=int, default=10, help="拉取 QASper 论文数量")
+    parser.add_argument("--chunk_size", type=int, default=400, help="切分块大小")
+    parser.add_argument("--gen_model", type=str, default="Qwen3.5-2B", help="选手模型")
+    parser.add_argument("--judge_model", type=str, default="Qwen3.5-9B", help="裁判模型")
+    parser.add_argument(
+        "--retrieval_mode",
+        type=str,
+        default="hybrid",
+        choices=["hybrid", "dense", "sparse"],
+        help="检索策略消融",
+    )
+    args = parser.parse_args()
+
     print(f"\n==================== 🚀 DSAI5201 终极压测 (异构裁判解耦 + 断点续跑) ====================")
 
     record_dir = "record"
     os.makedirs(record_dir, exist_ok=True)
 
-    # ==========================================
-    # 💡 核心超参数区
-    # ==========================================
-    NUM_PAPERS = 10  # 论文拉取数量
-    PARAM_CHUNK_SIZE = 400  # 文本切分大小
-    PARAM_GEN_MODEL = "Qwen3.5-2B"  # 选手模型
-    PARAM_JUDGE_MODEL = "Qwen3.5-9B"  # 裁判模型
+    NUM_PAPERS = args.num_papers
+    PARAM_CHUNK_SIZE = args.chunk_size
+    PARAM_GEN_MODEL = args.gen_model
+    PARAM_JUDGE_MODEL = args.judge_model
+    RETRIEVAL_MODE = args.retrieval_mode
 
     safe_gen_name = PARAM_GEN_MODEL.replace("/", "-")
-    csv_filename = f"eval_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}.csv"
+    csv_filename = f"eval_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}_mode-{RETRIEVAL_MODE}.csv"
     csv_filepath = os.path.join(record_dir, csv_filename)
-    txt_filepath = os.path.join(record_dir, f"details_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}.txt")
+    txt_filepath = os.path.join(
+        record_dir, f"details_{safe_gen_name}_chunk{PARAM_CHUNK_SIZE}_mode-{RETRIEVAL_MODE}.txt"
+    )
 
     processed_questions = set()
     if os.path.exists(csv_filepath):
@@ -102,7 +117,10 @@ def main():
             if query in processed_questions: continue
 
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            param_str = f"Chunk:{PARAM_CHUNK_SIZE}|Gen:{PARAM_GEN_MODEL}"
+            param_str = (
+                f"Chunk:{PARAM_CHUNK_SIZE}|Gen:{PARAM_GEN_MODEL}"
+                f"|Judge:{PARAM_JUDGE_MODEL}|Mode:{RETRIEVAL_MODE}"
+            )
 
             # 打印日志带上论文名，方便溯源
             print(f"\n❓ [Q {i + 1}/{num_q}] (Doc: {doc_name}): {query}")
@@ -110,7 +128,12 @@ def main():
 
             # ---------------- Method A ----------------
             # 💡 传入 target_doc_name 触发硬拦截，彻底告别串库
-            context_A_str, chunks_A_list = retriever_A.hybrid_search_rrf(query, top_k=5, target_doc_name=doc_name)
+            context_A_str, chunks_A_list = retriever_A.hybrid_search_rrf(
+                query,
+                top_k=5,
+                target_doc_name=doc_name,
+                mode=RETRIEVAL_MODE,
+            )
             hit_A, mrr_A, cprec_A = evaluate_retrieval_metrics(chunks_A_list, query)
             ans_A = evaluator.generate_answer(query, context_A_str)
             score_A = evaluator.evaluate_as_judge(query, context_A_str, ans_A, ground_truth)
@@ -123,7 +146,12 @@ def main():
 
             # ---------------- Method B ----------------
             # 💡 同样传入 target_doc_name 防串库
-            context_B_str, chunks_B_list = retriever_B.hybrid_search_rrf(query, top_k=5, target_doc_name=doc_name)
+            context_B_str, chunks_B_list = retriever_B.hybrid_search_rrf(
+                query,
+                top_k=5,
+                target_doc_name=doc_name,
+                mode=RETRIEVAL_MODE,
+            )
             hit_B, mrr_B, cprec_B = evaluate_retrieval_metrics(chunks_B_list, query)
             ans_B = evaluator.generate_answer(query, context_B_str)
             score_B = evaluator.evaluate_as_judge(query, context_B_str, ans_B, ground_truth)
