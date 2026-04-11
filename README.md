@@ -121,6 +121,25 @@ python app.py
 
 启动后在终端输出的本地地址打开页面（通常为 `http://127.0.0.1:7860`）。
 
+
+### 5.4 生成论文图（图2/图3/图4）
+
+当 `record/` 下已有对应实验 CSV 后，可直接生成三张图：
+
+```bash
+python plot_paper_figures.py
+```
+
+可选参数示例：
+
+```bash
+python plot_paper_figures.py \
+  --record_dir record \
+  --output_dir record/figures \
+  --line_chunk_sizes 200 400 600 800 \
+  --ablation_chunk_size 400
+```
+
 ## 6. 输出结果解读
 
 ### CSV 核心列
